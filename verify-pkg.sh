@@ -1,6 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PRODUCT_NAME="CangjieX"
 APP_BUNDLE_ID="${APP_BUNDLE_ID:-io.github.geekstek.inputmethod.CangjieX}"
 COMPONENT_ID="${COMPONENT_ID:-io.github.geekstek.cangjiex.inputmethod}"
@@ -171,25 +172,12 @@ if [[ -f "${stage_info_plist}" ]]; then
 
         associated_phrase_count="$(sqlite3 "${database_path}" "SELECT COUNT(*) FROM associated_phrases;" 2>/dev/null)" \
             || fail "KeyKey database does not contain readable associated_phrases"
-        unigram_table_count="$(sqlite3 "${database_path}" "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'unigrams';" 2>/dev/null)" \
-            || fail "KeyKey database cannot be inspected for unigrams"
-        cangjiex_tail_count="$(sqlite3 "${database_path}" "SELECT instr(data, '頡') FROM associated_phrases WHERE headchar = '倉';" 2>/dev/null)" \
-            || fail "KeyKey database cannot query CangjieX associated phrase seed"
-        simplified_yi_tail_count="$(sqlite3 "${database_path}" "SELECT instr(data, '经') FROM associated_phrases WHERE headchar = '已';" 2>/dev/null)" \
-            || fail "KeyKey database cannot query traditional associated phrase seed"
-        simplified_zhe_head_count="$(sqlite3 "${database_path}" "SELECT COUNT(*) FROM associated_phrases WHERE headchar = '这';" 2>/dev/null)" \
-            || fail "KeyKey database cannot inspect simplified associated phrase heads"
 
         [[ -n "${associated_phrase_count}" ]] && [[ "${associated_phrase_count}" != "0" ]] \
             || fail "KeyKey database does not contain associated phrases"
-        [[ "${unigram_table_count}" == "1" ]] \
-            || fail "KeyKey database does not contain unigrams table required by associated phrases"
-        [[ -n "${cangjiex_tail_count}" ]] && [[ "${cangjiex_tail_count}" != "0" ]] \
-            || fail "KeyKey database does not contain the CangjieX associated phrase seed"
-        [[ -z "${simplified_yi_tail_count}" ]] || [[ "${simplified_yi_tail_count}" == "0" ]] \
-            || fail "KeyKey database contains simplified 已 -> 经 associated phrase"
-        [[ "${simplified_zhe_head_count}" == "0" ]] \
-            || fail "KeyKey database contains simplified associated phrase head 这"
+
+        ruby "${SCRIPT_DIR}/tools/validate-associated-phrases.rb" "${database_path}" \
+            || fail "associated phrase quality validation failed"
 
         pass "associated phrases (${associated_phrase_count} heads)"
     fi

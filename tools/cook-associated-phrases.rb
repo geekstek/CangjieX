@@ -3,6 +3,7 @@
 
 require "sqlite3"
 require "set"
+require_relative "associated-phrase-quality"
 
 if ARGV.size != 2
   warn "usage: cook-associated-phrases.rb <source-root> <keykey-db>"
@@ -12,8 +13,6 @@ end
 source_root = ARGV.fetch(0)
 database_path = ARGV.fetch(1)
 
-SIMPLIFIED_ONLY_CHARS = /[们经个样种为会没关问说过现觉开题资库设输仓颉联词这]/
-
 common_phrases = []
 seed_path = File.expand_path("common-associated-phrases.txt", __dir__)
 
@@ -22,23 +21,6 @@ if File.file?(seed_path)
     common_phrases << line
   end
 end
-
-common_phrases.concat(%w[
-  我們 我的 我是 我會 我要 我想 我在 我有 我可以 我覺得 我需要 我希望
-  你好 你們 你的 你是 你會 你要 你可以 你覺得
-  他們 他的 他是 她們 她的 它們 它的
-  這個 這些 這樣 這裡 這次 這種 這是
-  那個 那些 那樣 那裡 那次 那種 那是
-  今天 今年 今日 今晚 明天 明年 明白 明顯 昨天 昨晚
-  中文 中國 中心 中間 中央 中華 中大 中小
-  倉頡 倉頡星 輸入 輸入法 關聯 關係 關鍵 關於 聯想 聯絡 聯繫
-  詞語 詞彙 詞庫 繁體 繁簡 簡體 AppleSilicon 蘋果 電腦 電話 電子 電郵
-  系統 設定 設計 開源 開發 現代 現在 現場 可以 可能 可用 可愛
-  不能 不會 不是 不要 不用 不好 不到 沒有 沒關係 沒問題
-  請問 請你 請稍等 謝謝 工作 公司 項目 專案 問題 方案 方法
-  使用 用戶 用法 資料 資料庫 學習 學校 學生 生活 生命 時間 時候
-  地方 地點 香港 台灣 臺灣 澳門 美國 日本 韓國
-])
 
 phrases = []
 
@@ -51,7 +33,7 @@ add_phrase = lambda do |phrase|
   chars = phrase.each_char.to_a
   next if chars.length < 2 || chars.length > 8
   next unless chars.first.match?(/\p{Han}/)
-  next if phrase.match?(SIMPLIFIED_ONLY_CHARS)
+  next unless AssociatedPhraseQuality.traditional_phrase?(phrase)
 
   phrases << phrase
 end
