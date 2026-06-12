@@ -1,16 +1,31 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
-echo "Preparing CangjieX installation"
+PRODUCT_NAME="CangjieX"
+LEGACY_PRODUCT_NAME="Yahoo! KeyKey"
+INPUT_METHODS_DIR="/Library/Input Methods"
 
-for target in \
-    "/Library/Input Methods/CangjieX.app" \
-    "/Library/Input Methods/Yahoo! KeyKey.app"
-do
-    if [ -d "$target" ]; then
-        echo "Removing old input method bundle: $target"
-        rm -rf "$target"
+stop_input_method() {
+    local process_name="$1"
+
+    /usr/bin/killall "${process_name}" >/dev/null 2>&1 || true
+}
+
+remove_bundle() {
+    local bundle_path="$1"
+
+    if [[ -d "${bundle_path}" ]]; then
+        echo "Removing old input method bundle: ${bundle_path}"
+        /bin/rm -rf "${bundle_path}"
     fi
-done
+}
+
+echo "Preparing ${PRODUCT_NAME} installation"
+
+stop_input_method "${LEGACY_PRODUCT_NAME}"
+stop_input_method "${PRODUCT_NAME}"
+
+remove_bundle "${INPUT_METHODS_DIR}/${PRODUCT_NAME}.app"
+remove_bundle "${INPUT_METHODS_DIR}/${LEGACY_PRODUCT_NAME}.app"
 
 exit 0

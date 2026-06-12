@@ -7,7 +7,7 @@
 這個倉庫目前提供兩條建置路線：
 
 1. 預設路線會把既有的 Yahoo! KeyKey 輸入法 app 重新整理為 `CangjieX.app`，並輸出 `CangjieX.pkg`。底層二進制仍是舊版 Yahoo! KeyKey，因此 Apple Silicon 會依賴 Rosetta。
-2. 實驗性源碼路線會從 `YahooArchive/KeyKey` 拉取 BSD 授權源碼，套用現代 macOS / Xcode 相容補丁，編出 `arm64 + x86_64` universal app，再重新品牌化為 `CangjieX.pkg`。
+2. 源碼路線會從 `YahooArchive/KeyKey` 拉取 BSD 授權源碼，套用現代 macOS / Xcode 相容補丁，編出 `arm64 + x86_64` universal app，再重新品牌化為 `CangjieX.pkg`。這是目前建議的發佈路線。
 
 打包過程會移除舊版安裝說明 app 與 Yahoo 更新檢查 app，避免正式發佈包攜帶已過時的 Yahoo 安裝流程與更新入口。
 
@@ -81,7 +81,7 @@ xcrun stapler staple build/CangjieX.pkg
 
 ## GitHub Release
 
-推送版本 tag 會自動建置並發佈 `CangjieX.pkg` 到 GitHub Releases：
+推送版本 tag 會自動建置 source-built `CangjieX.pkg` 到 GitHub Releases：
 
 ```sh
 git tag v1.0.1
@@ -106,19 +106,19 @@ make probe-source
 PROBE_BUILD=1 make probe-source
 ```
 
-若要直接產生實驗性的 Apple Silicon 原生 pkg：
+若要直接產生 Apple Silicon 原生 source-built pkg：
 
 ```sh
 make source-checksum
 ```
 
-這會輸出實驗性源碼安裝包：
+這會輸出源碼安裝包：
 
 ```text
 build/source/CangjieX.pkg
 ```
 
-源碼路線會額外檢查輸入法主程式包含 `arm64`、最低系統版本不高於 macOS 11.0，並確認 `KeyKey.db` 內含倉頡碼表資料。由於目前仍有 DotMacKit、SQLite SEE/CEROD 與部分舊安全驗證路徑的 probe-only 替代實作，智慧注音、完整聯想詞與舊加密資料庫仍未完全重建，這條路線暫時只建議用於開發測試。
+源碼路線會額外檢查輸入法主程式包含 `arm64`、最低系統版本不高於 macOS 11.0，並確認 `KeyKey.db` 內含倉頡碼表與繁體聯想詞資料。聯想詞會由上游開放詞庫與 `tools/common-associated-phrases.txt` 重新產生，並在打包時檢查常用候選順序與簡體字混入。由於目前仍有 DotMacKit、SQLite SEE/CEROD 與部分舊安全驗證路徑的 probe-only 替代實作，智慧注音與舊加密使用者資料庫仍不作為發佈重點。
 
 預設穩定包仍輸出到：
 

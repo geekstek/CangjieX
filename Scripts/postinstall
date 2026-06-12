@@ -1,10 +1,19 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
-echo "CangjieX has been installed."
-echo "Please log out and back in, then enable CangjieX in System Settings > Keyboard > Input Sources."
+PRODUCT_NAME="CangjieX"
+LEGACY_PRODUCT_NAME="Yahoo! KeyKey"
 
-killall "Yahoo! KeyKey" >/dev/null 2>&1 || true
-killall "CangjieX" >/dev/null 2>&1 || true
+stop_input_method() {
+    local process_name="$1"
+
+    /usr/bin/killall "${process_name}" >/dev/null 2>&1 || true
+}
+
+stop_input_method "${LEGACY_PRODUCT_NAME}"
+stop_input_method "${PRODUCT_NAME}"
+
+echo "${PRODUCT_NAME} has been installed."
+echo "Please log out and back in, then enable ${PRODUCT_NAME} in System Settings > Keyboard > Input Sources."
 
 exit 0

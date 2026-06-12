@@ -20,17 +20,22 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Build, verify, and checksum
+      - name: Prepare Ruby SQLite dependency
         shell: bash
         run: |
-          make checksum
+          ruby -e 'require "sqlite3"' >/dev/null 2>&1 || sudo gem install sqlite3 --no-document
+
+      - name: Build, verify, and checksum source package
+        shell: bash
+        run: |
+          make source-checksum
 
       - name: Upload package artifact
         uses: actions/upload-artifact@v4
         with:
-          name: CangjieX-pkg
+          name: CangjieX-source-pkg
           path: |
-            build/CangjieX.pkg
-            build/CangjieX.pkg.sha256
+            build/source/CangjieX.pkg
+            build/source/CangjieX.pkg.sha256
           if-no-files-found: ignore
           retention-days: 7

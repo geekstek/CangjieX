@@ -9,8 +9,8 @@ if [[ "${EUID}" -ne 0 ]]; then
     exec sudo "$0" "$@"
 fi
 
-killall "Yahoo! KeyKey" >/dev/null 2>&1 || true
-killall "${PRODUCT_NAME}" >/dev/null 2>&1 || true
+/usr/bin/killall "Yahoo! KeyKey" >/dev/null 2>&1 || true
+/usr/bin/killall "${PRODUCT_NAME}" >/dev/null 2>&1 || true
 
 if [[ -d "${APP_PATH}" ]]; then
     rm -rf "${APP_PATH}"

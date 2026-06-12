@@ -39,20 +39,15 @@ jobs:
           echo "version=${version}" >>"${GITHUB_OUTPUT}"
           echo "tag=${tag}" >>"${GITHUB_OUTPUT}"
 
-      - name: Build installer package
+      - name: Prepare Ruby SQLite dependency
         shell: bash
         run: |
-          VERSION="${{ steps.release.outputs.version }}" ./build.sh
+          ruby -e 'require "sqlite3"' >/dev/null 2>&1 || sudo gem install sqlite3 --no-document
 
-      - name: Verify installer package
+      - name: Build, verify, and checksum source package
         shell: bash
         run: |
-          ./verify-pkg.sh build/CangjieX.pkg
-
-      - name: Generate checksum
-        shell: bash
-        run: |
-          make checksum
+          VERSION="${{ steps.release.outputs.version }}" make source-checksum
 
       - name: Publish GitHub release
         env:
@@ -65,7 +60,7 @@ jobs:
           cat >"${release_notes}" <<EOF
           CangjieX ${VERSION}
 
-          This release contains the unsigned macOS installer package.
+          This release contains the unsigned universal macOS installer package built from the open source Yahoo KeyKey source tree.
 
           Install with:
 
@@ -75,9 +70,9 @@ jobs:
           EOF
 
           if gh release view "${TAG_NAME}" >/dev/null 2>&1; then
-            gh release upload "${TAG_NAME}" build/CangjieX.pkg build/CangjieX.pkg.sha256 --clobber
+            gh release upload "${TAG_NAME}" build/source/CangjieX.pkg build/source/CangjieX.pkg.sha256 --clobber
           else
-            gh release create "${TAG_NAME}" build/CangjieX.pkg build/CangjieX.pkg.sha256 \
+            gh release create "${TAG_NAME}" build/source/CangjieX.pkg build/source/CangjieX.pkg.sha256 \
               --target "${GITHUB_SHA}" \
               --title "CangjieX ${VERSION}" \
               --notes-file "${release_notes}"
