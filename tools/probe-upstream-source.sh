@@ -4,6 +4,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 UPSTREAM_REPO="${UPSTREAM_REPO:-https://github.com/YahooArchive/KeyKey.git}"
+SOURCE_UPSTREAM_COMMIT="${SOURCE_UPSTREAM_COMMIT:-81e05f070c070af65cac21e8da28ca4ff2d58905}"
+SOURCE_PATCH_MANIFEST="${SOURCE_PATCH_MANIFEST:-${SCRIPT_DIR}/source-patches/manifest.tsv}"
 SOURCE_PROBE_DIR="${SOURCE_PROBE_DIR:-/tmp/CangjieX-upstream-source}"
 SOURCE_REPO_DIR="${SOURCE_PROBE_DIR}/KeyKey"
 GIT_CMD="${GIT:-git}"
@@ -12,6 +14,8 @@ SOURCE_DEPLOYMENT_TARGET="${SOURCE_DEPLOYMENT_TARGET:-11.0}"
 SOURCE_BUILD_APP="${SOURCE_BUILD_APP:-}"
 SOURCE_BUILD_LOG="${SOURCE_BUILD_LOG:-${SOURCE_PROBE_DIR}/source-build.log}"
 SOURCE_DATABASE_LOG="${SOURCE_DATABASE_LOG:-${SOURCE_PROBE_DIR}/database-cooker.log}"
+SOURCE_PATCH_IDS=""
+APPLIED_SOURCE_PATCHES=""
 
 xcrun_policy_error() {
     local output="$1"
@@ -56,14 +60,71 @@ git_version_output="$("${GIT_CMD}" --version 2>&1)" || {
     exit 1
 }
 
-if [[ -d "${SOURCE_REPO_DIR}/.git" ]]; then
-    "${GIT_CMD}" -C "${SOURCE_REPO_DIR}" fetch --depth 1 origin master
-    "${GIT_CMD}" -C "${SOURCE_REPO_DIR}" reset --hard origin/master >/dev/null
-    "${GIT_CMD}" -C "${SOURCE_REPO_DIR}" clean -fdx >/dev/null
-else
-    rm -rf "${SOURCE_REPO_DIR}"
-    "${GIT_CMD}" clone --depth 1 "${UPSTREAM_REPO}" "${SOURCE_REPO_DIR}"
-fi
+load_source_patch_manifest() {
+    [[ -f "${SOURCE_PATCH_MANIFEST}" ]] || {
+        echo "Source patch manifest is missing: ${SOURCE_PATCH_MANIFEST}" >&2
+        exit 1
+    }
+
+    SOURCE_PATCH_IDS="$(awk 'NF && $1 !~ /^#/ { print $1 }' "${SOURCE_PATCH_MANIFEST}")"
+
+    if [[ -z "${SOURCE_PATCH_IDS}" ]]; then
+        echo "Source patch manifest has no patch entries: ${SOURCE_PATCH_MANIFEST}" >&2
+        exit 1
+    fi
+}
+
+source_patch_applied() {
+    local patch_id="$1"
+    local description="$2"
+
+    if ! printf '%s\n' "${SOURCE_PATCH_IDS}" | grep -qx "${patch_id}"; then
+        echo "Source patch '${patch_id}' is not registered in ${SOURCE_PATCH_MANIFEST}" >&2
+        exit 1
+    fi
+
+    APPLIED_SOURCE_PATCHES="${APPLIED_SOURCE_PATCHES}${patch_id}"$'\n'
+    echo "Applied source patch [${patch_id}]: ${description}"
+    echo
+}
+
+print_source_patch_summary() {
+    local applied_count
+
+    applied_count="$(printf '%s' "${APPLIED_SOURCE_PATCHES}" | sed '/^$/d' | wc -l | tr -d '[:space:]')"
+
+    echo "Source patch manifest: ${SOURCE_PATCH_MANIFEST}"
+    echo "Pinned upstream commit: ${SOURCE_UPSTREAM_COMMIT}"
+    echo "Applied registered source patches: ${applied_count}"
+    echo
+}
+
+checkout_upstream_source() {
+    mkdir -p "${SOURCE_PROBE_DIR}"
+
+    if [[ -d "${SOURCE_REPO_DIR}/.git" ]]; then
+        "${GIT_CMD}" -C "${SOURCE_REPO_DIR}" fetch --depth 1 origin "${SOURCE_UPSTREAM_COMMIT}"
+        "${GIT_CMD}" -C "${SOURCE_REPO_DIR}" reset --hard FETCH_HEAD >/dev/null
+        "${GIT_CMD}" -C "${SOURCE_REPO_DIR}" clean -fdx >/dev/null
+    else
+        rm -rf "${SOURCE_REPO_DIR}"
+        "${GIT_CMD}" init -q "${SOURCE_REPO_DIR}"
+        "${GIT_CMD}" -C "${SOURCE_REPO_DIR}" remote add origin "${UPSTREAM_REPO}"
+        "${GIT_CMD}" -C "${SOURCE_REPO_DIR}" fetch --depth 1 origin "${SOURCE_UPSTREAM_COMMIT}"
+        "${GIT_CMD}" -C "${SOURCE_REPO_DIR}" checkout --detach -q FETCH_HEAD
+    fi
+
+    local actual_commit
+    actual_commit="$("${GIT_CMD}" -C "${SOURCE_REPO_DIR}" rev-parse HEAD)"
+
+    if [[ "${actual_commit}" != "${SOURCE_UPSTREAM_COMMIT}" ]]; then
+        echo "Upstream checkout is ${actual_commit}, expected ${SOURCE_UPSTREAM_COMMIT}" >&2
+        exit 1
+    fi
+}
+
+load_source_patch_manifest
+checkout_upstream_source
 
 source_root="$(find "${SOURCE_REPO_DIR}" -maxdepth 1 -type d -name 'YahooKeyKey-Source-*' | sort | head -n 1)"
 
@@ -104,8 +165,7 @@ apply_source_compat_patches() {
 
     if [[ -f "${file_helper}" ]] && ! grep -q '#include <unistd.h>' "${file_helper}"; then
         ruby -0pi -e 'sub("#if defined(__APPLE__)\n    #include <dirent.h>\n    #include <stdio.h>\n", "#if defined(__APPLE__)\n    #include <dirent.h>\n    #include <stdio.h>\n    #include <unistd.h>\n")' "${file_helper}"
-        echo "Applied compatibility patch: OpenVanilla OVFileHelper.h now includes unistd.h."
-        echo
+        source_patch_applied "openvanilla-file-helper-unistd" "OpenVanilla OVFileHelper.h now includes unistd.h."
     fi
 
     if [[ -f "${module_system}" ]] \
@@ -123,8 +183,7 @@ apply_source_compat_patches() {
                 $in_config_dictionary = false
             end
         ' "${module_system}"
-        echo "Applied compatibility patch: PlainVanilla configDictionaryForModule returns a null pointer."
-        echo
+        source_patch_applied "plainvanilla-config-null" "PlainVanilla configDictionaryForModule returns a null pointer."
     fi
 
     if [[ -f "${property_list}" ]] && grep -q 'PVPlistValue stringValue(string(' "${property_list}"; then
@@ -132,53 +191,45 @@ apply_source_compat_patches() {
             gsub("PVPlistValue stringValue(string([value UTF8String]));", "PVPlistValue stringValue((string([value UTF8String])));")
             gsub("PVPlistValue stringValue(string([[value stringValue] UTF8String]));", "PVPlistValue stringValue((string([[value stringValue] UTF8String])));")
         ' "${property_list}"
-        echo "Applied compatibility patch: PlainVanilla PVPropertyList string values use explicit initialization."
-        echo
+        source_patch_applied "plainvanilla-property-list-init" "PlainVanilla PVPropertyList string values use explicit initialization."
     fi
 
     if [[ -f "${nsstring_extension}" ]] && grep -q 'NSRange r = (NSRange){0, i + 1};' "${nsstring_extension}"; then
         ruby -pi -e 'gsub("NSRange r = (NSRange){0, i + 1};", "NSRange r = (NSRange){0, (NSUInteger)(i + 1)};")' "${nsstring_extension}"
-        echo "Applied compatibility patch: NSStringExtension uses NSUInteger for NSRange length."
-        echo
+        source_patch_applied "imk-nsstring-nsrange" "NSStringExtension uses NSUInteger for NSRange length."
     fi
 
     if [[ -f "${dictionary_window_source}" ]] && ! grep -q 'LFCrossDevelopmentTools.h' "${dictionary_window_source}"; then
         ruby -0pi -e 'sub(%Q{#import "CVDictionaryWindow.h"\n}, %Q{#import "CVDictionaryWindow.h"\n#import <LFExtensions/LFCrossDevelopmentTools.h>\n})' "${dictionary_window_source}"
-        echo "Applied compatibility patch: CVDictionaryWindow declares OS version helpers."
-        echo
+        source_patch_applied "imk-dictionary-window-version-helpers" "CVDictionaryWindow declares OS version helpers."
     fi
 
     if [[ -f "${vertical_candidate_header}" ]] \
         && grep -q '@interface CVVerticalCandidateController : NSWindowController$' "${vertical_candidate_header}"; then
         ruby -pi -e 'sub("@interface CVVerticalCandidateController : NSWindowController\n", "@interface CVVerticalCandidateController : NSWindowController <NSTableViewDelegate, NSTableViewDataSource>\n")' "${vertical_candidate_header}"
-        echo "Applied compatibility patch: CVVerticalCandidateController declares table view protocols."
-        echo
+        source_patch_applied "imk-vertical-candidate-protocols" "CVVerticalCandidateController declares table view protocols."
     fi
 
     if [[ -f "${symbol_controller_header}" ]] \
         && grep -q '@interface CVSymbolController : NSWindowController$' "${symbol_controller_header}"; then
         ruby -pi -e 'sub("@interface CVSymbolController : NSWindowController\n", "@interface CVSymbolController : NSWindowController <NSWindowDelegate>\n")' "${symbol_controller_header}"
-        echo "Applied compatibility patch: CVSymbolController declares window delegate protocol."
-        echo
+        source_patch_applied "imk-symbol-controller-delegate" "CVSymbolController declares window delegate protocol."
     fi
 
     if [[ -f "${dictionary_controller_header}" ]] \
         && grep -q '@interface CVDictionaryController : NSWindowController$' "${dictionary_controller_header}"; then
         ruby -pi -e 'sub("@interface CVDictionaryController : NSWindowController\n", "@interface CVDictionaryController : NSWindowController <NSWindowDelegate, NSToolbarDelegate, WKUIDelegate, WebUIDelegate, WebFrameLoadDelegate, WebPolicyDelegate>\n")' "${dictionary_controller_header}"
-        echo "Applied compatibility patch: CVDictionaryController declares window, toolbar, and WebKit delegate protocols."
-        echo
+        source_patch_applied "imk-dictionary-controller-delegates" "CVDictionaryController declares window, toolbar, and WebKit delegate protocols."
     fi
 
     if [[ -f "${open_vanilla_loader_source}" ]] && grep -q 'OVWildcard exp(string(\[pattern UTF8String\]));' "${open_vanilla_loader_source}"; then
         ruby -pi -e 'gsub("OVWildcard exp(string([pattern UTF8String]));", "OVWildcard exp((string([pattern UTF8String])));")' "${open_vanilla_loader_source}"
-        echo "Applied compatibility patch: OpenVanillaLoader wildcard pattern uses explicit initialization."
-        echo
+        source_patch_applied "loader-wildcard-init" "OpenVanillaLoader wildcard pattern uses explicit initialization."
     fi
 
     if [[ -f "${open_vanilla_loader_source}" ]] && grep -q '_loader->setPrimaryInputMethod("SmartMandarin");' "${open_vanilla_loader_source}"; then
         ruby -pi -e 'gsub(%q{_loader->setPrimaryInputMethod("SmartMandarin");}, %q{_loader->setPrimaryInputMethod("Generic-cj-cin");})' "${open_vanilla_loader_source}"
-        echo "Applied compatibility patch: OpenVanillaLoader defaults to Cangjie for CangjieX source builds."
-        echo
+        source_patch_applied "loader-default-cangjie" "OpenVanillaLoader defaults to Cangjie for CangjieX source builds."
     fi
 
     if [[ -f "${open_vanilla_loader_source}" ]] \
@@ -187,14 +238,12 @@ apply_source_compat_patches() {
             sub(%r{(    // NSLog\(@"db file = %s", dbFile\.c_str\(\)\);\n    \n)    #ifndef OVLOADER_USE_SQLITE_CRYPTO\n        _SQLiteDatabaseService = OVSQLiteDatabaseService::Create\(dbFile\);\n}, "\\1    OVSQLiteConnection* dbc = 0;\n\n    #ifndef OVLOADER_USE_SQLITE_CRYPTO\n        _SQLiteDatabaseService = OVSQLiteDatabaseService::Create(dbFile);\n        if (_SQLiteDatabaseService) {\n            _SQLiteDatabaseService->connection()->execute(\"PRAGMA synchronous = OFF\");\n            mainDBVersion = FetchDatabaseVersionInfo(_SQLiteDatabaseService->connection(), \"cooked_information\");\n        }\n")
             gsub("OVSQLiteConnection* dbc = OVSQLiteConnection::Open(dbFile);", "dbc = OVSQLiteConnection::Open(dbFile);")
         ' "${open_vanilla_loader_source}"
-        echo "Applied compatibility patch: OpenVanillaLoader initializes SQLite metadata without the legacy crypto path."
-        echo
+        source_patch_applied "loader-public-sqlite-metadata" "OpenVanillaLoader initializes SQLite metadata without the legacy crypto path."
     fi
 
     if [[ -f "${send_key_source}" ]] && grep -q 'GetScriptVariable(smCurrentScript, smScriptKeys)' "${send_key_source}"; then
         ruby -0pi -e 'sub(%r{#ifdef __x86_64__\n\t// always set to 0\n\tkeytable\.kchrID = 0;\n#else\n    keytable\.kchrID = \(short\) GetScriptVariable\(smCurrentScript, smScriptKeys\);\n#endif}, %Q{keytable.kchrID = 0;})' "${send_key_source}"
-        echo "Applied compatibility patch: CVSendKey avoids removed Carbon script keyboard APIs."
-        echo
+        source_patch_applied "imk-sendkey-no-carbon-script" "CVSendKey avoids removed Carbon script keyboard APIs."
     fi
 
     if [[ -f "${source_root}/Loaders/OSX-IMK/OpenVanillaController.mm" ]] \
@@ -245,15 +294,17 @@ end
 
 File.write(path, source)
 RUBY
-        echo "Applied compatibility patch: OpenVanillaController exposes modern IMK inputText fallbacks."
-        echo
+        source_patch_applied "imk-controller-inputtext-fallbacks" "OpenVanillaController exposes modern IMK inputText fallbacks."
     fi
 
     for loader_user_persistence_source in "${loader_user_persistence_mm}" "${loader_user_persistence_cpp}"; do
         if [[ -f "${loader_user_persistence_source}" ]] && ! grep -q 'extern "C" int sqlite3_key(sqlite3 \\*db' "${loader_user_persistence_source}"; then
             ruby -pi -e 'sub("int sqlite3_rekey(sqlite3 *db, const void *pKey, int nKey);", "extern \"C\" int sqlite3_key(sqlite3 *db, const void *pKey, int nKey);\nextern \"C\" int sqlite3_rekey(sqlite3 *db, const void *pKey, int nKey);")' "${loader_user_persistence_source}"
-            echo "Applied compatibility patch: $(basename "${loader_user_persistence_source}") declares sqlite3_key."
-            echo
+            if [[ "${loader_user_persistence_source}" == *".mm" ]]; then
+                source_patch_applied "user-persistence-mm-sqlite-key" "$(basename "${loader_user_persistence_source}") declares sqlite3_key."
+            else
+                source_patch_applied "user-persistence-cpp-sqlite-key" "$(basename "${loader_user_persistence_source}") declares sqlite3_key."
+            fi
         fi
 
         if [[ -f "${loader_user_persistence_source}" ]] \
@@ -261,28 +312,28 @@ RUBY
             ruby -0pi -e '
                 sub(%r{(    if \(m_userDatabase\) \{\n)(        pair<char\*, size_t> cle = ObtenirUserDonneCle\(\);\n        if \(cle\.first\) \{\n            sqlite3_key\(m_userDatabase->connection\(\), cle\.first, \(int\)cle\.second\);\n            free\(cle\.first\);\n        \}\n)(    \}\n)}, "\\1#ifdef OVLOADER_USE_SQLITE_CRYPTO\n\\2#else\n        // Probe builds use an unencrypted user database.\n#endif\n\\3")
             ' "${loader_user_persistence_source}"
-            echo "Applied compatibility patch: $(basename "${loader_user_persistence_source}") skips user database crypto in public SQLite probe builds."
-            echo
+            if [[ "${loader_user_persistence_source}" == *".mm" ]]; then
+                source_patch_applied "user-persistence-mm-public-db" "$(basename "${loader_user_persistence_source}") skips user database crypto in public SQLite probe builds."
+            else
+                source_patch_applied "user-persistence-cpp-public-db" "$(basename "${loader_user_persistence_source}") skips user database crypto in public SQLite probe builds."
+            fi
         fi
     done
 
     if [[ -f "${bpmf_user_phrase_helper}" ]] && ! grep -q 'extern "C" int sqlite3_key(sqlite3 \\*db' "${bpmf_user_phrase_helper}"; then
         ruby -pi -e 'sub("int sqlite3_rekey(sqlite3 *db, const void *pKey, int nKey);", "extern \"C\" int sqlite3_key(sqlite3 *db, const void *pKey, int nKey);\nextern \"C\" int sqlite3_rekey(sqlite3 *db, const void *pKey, int nKey);")' "${bpmf_user_phrase_helper}"
-        echo "Applied compatibility patch: Manjusri declares sqlite3_key."
-        echo
+        source_patch_applied "manjusri-sqlite-key" "Manjusri declares sqlite3_key."
     fi
 
     if [[ -f "${smart_mandarin_source}" ]] && ! grep -q 'extern "C" int sqlite3_key(sqlite3 \\*db' "${smart_mandarin_source}"; then
         ruby -pi -e 'sub("int sqlite3_rekey(sqlite3 *db, const void *pKey, int nKey);", "extern \"C\" int sqlite3_key(sqlite3 *db, const void *pKey, int nKey);\nextern \"C\" int sqlite3_rekey(sqlite3 *db, const void *pKey, int nKey);")' "${smart_mandarin_source}"
-        echo "Applied compatibility patch: SmartMandarin declares sqlite3_key."
-        echo
+        source_patch_applied "smart-mandarin-sqlite-key" "SmartMandarin declares sqlite3_key."
     fi
 
     if [[ -f "${evalgelion_header}" ]] \
         && ruby -e 'content = File.read(ARGV[0]); exit(content[/Node\* entity\(\).*?return false;\n\s*}\n\s*Node\* expression/m] ? 0 : 1)' "${evalgelion_header}"; then
         ruby -0pi -e 'sub(/(Node\* entity\(\).*?)return false;(\n\s*}\n\s*Node\* expression)/m, "\\1return 0;\\2")' "${evalgelion_header}"
-        echo "Applied compatibility patch: OVAFEval entity returns a null pointer."
-        echo
+        source_patch_applied "ovaf-eval-null-entity" "OVAFEval entity returns a null pointer."
     fi
 
     if [[ -f "${native_bopomofo_extconf}" ]] && grep -q "CONFIG\\['CXXFLAGS'\\]" "${native_bopomofo_extconf}"; then
@@ -291,8 +342,7 @@ RUBY
                 $_ = "$CXXFLAGS += \" -DMANDARIN_USE_MINIMAL_OPENVANILLA -I../../Headers -I../../../OpenVanilla/Headers\"\n"
             end
         ' "${native_bopomofo_extconf}"
-        echo "Applied compatibility patch: native_bopomofo passes Formosa include paths to modern Ruby mkmf."
-        echo
+        source_patch_applied "native-bopomofo-include-paths" "native_bopomofo passes Formosa include paths to modern Ruby mkmf."
     fi
 
     if [[ -f "${native_bopomofo_source}" ]] && grep -q 'RSTRING(rStr)->' "${native_bopomofo_source}"; then
@@ -300,8 +350,7 @@ RUBY
             gsub("RSTRING(rStr)->len", "RSTRING_LEN(rStr)")
             gsub("RSTRING(rStr)->ptr", "RSTRING_PTR(rStr)")
         ' "${native_bopomofo_source}"
-        echo "Applied compatibility patch: native_bopomofo uses modern Ruby string accessors."
-        echo
+        source_patch_applied "native-bopomofo-ruby-string-api" "native_bopomofo uses modern Ruby string accessors."
     fi
 
     if [[ -f "${minotaur_source}" ]] && grep -q '#include <openssl/rsa.h>' "${minotaur_source}"; then
@@ -429,20 +478,17 @@ RUBY
             };
         SOURCE
         ' "${minotaur_source}"
-        echo "Applied compatibility patch: Minotaur uses CommonCrypto SHA1 and disables obsolete OpenSSL RSA probe paths."
-        echo
+        source_patch_applied "minotaur-commoncrypto-digest" "Minotaur uses CommonCrypto SHA1 and disables obsolete OpenSSL RSA probe paths."
     fi
 
     if [[ -f "${project_file}" ]] && grep -q 'libcrypto.dylib in Frameworks' "${project_file}"; then
         ruby -ni -e 'print unless /\/\* libcrypto\.dylib in Frameworks \*\//' "${project_file}"
-        echo "Applied compatibility patch: removed obsolete libcrypto.dylib link entries."
-        echo
+        source_patch_applied "project-remove-libcrypto-link" "removed obsolete libcrypto.dylib link entries."
     fi
 
     if [[ -f "${project_file}" ]] && grep -q 'OVLOADER_USE_SQLITE_CRYPTO' "${project_file}"; then
         ruby -ni -e 'print unless /^\s*OVLOADER_USE_SQLITE_CRYPTO,\s*$/' "${project_file}"
-        echo "Applied compatibility patch: IMK loader uses the public SQLite database path for probe builds."
-        echo
+        source_patch_applied "project-public-sqlite-loader" "IMK loader uses the public SQLite database path for probe builds."
     fi
 
     if [[ -f "${project_file}" ]] && grep -q 'YahooKeyKey_1_Connection' "${project_file}"; then
@@ -467,8 +513,7 @@ end
 
 File.write(path, source)
 RUBY
-        echo "Applied compatibility patch: source-built loader uses CangjieX service and preference identifiers."
-        echo
+        source_patch_applied "project-cangjiex-identifiers" "source-built loader uses CangjieX service and preference identifiers."
     fi
 
     if [[ -d "${cerod_sqlite_dir}" ]] \
@@ -544,8 +589,7 @@ RUBY
             SOURCE
         end' "${cerod_sqlite_source}"
 
-        echo "Applied compatibility patch: substituted missing commercial sqlite-cerod-see source with bundled sqlite and probe codec stubs."
-        echo
+        source_patch_applied "sqlite-cerod-public-stub" "substituted missing commercial sqlite-cerod-see source with bundled sqlite and probe codec stubs."
     fi
 
     if [[ ! -f "${cooked_keykey_database}" ]]; then
@@ -557,8 +601,7 @@ RUBY
             ruby -e 'File.binwrite(ARGV[0], "")' "${cooked_keykey_database}"
         fi
 
-        echo "Applied compatibility patch: created a minimal KeyKey.db placeholder for probe builds."
-        echo
+        source_patch_applied "cooked-db-placeholder" "created a minimal KeyKey.db placeholder for probe builds."
     fi
 
     if [[ -d "${dotmac_framework}" ]] \
@@ -650,8 +693,7 @@ RUBY
             -o "${dotmac_binary}" \
             -install_name "@rpath/DotMacKit.framework/DotMacKit"
 
-        echo "Applied compatibility patch: created a DotMacKit stub framework for obsolete MobileMe APIs."
-        echo
+        source_patch_applied "dotmackit-stub-framework" "created a DotMacKit stub framework for obsolete MobileMe APIs."
     fi
 
     if [[ -f "${dotmac_binary}" ]]; then
@@ -670,12 +712,12 @@ RUBY
     done < <(find "${source_root}" -name '*.xib' -print0 2>/dev/null)
 
     if [[ "${xib_count}" -gt 0 ]]; then
-        echo "Applied compatibility patch: raised ${xib_count} XIB system target(s) to macOS 10.6."
-        echo
+        source_patch_applied "xib-system-target-1060" "raised ${xib_count} XIB system target(s) to macOS 10.6."
     fi
 }
 
 apply_source_compat_patches
+print_source_patch_summary
 
 cook_basic_keykey_database() {
     local database_cooker_dir="${source_root}/Distributions/Takao/DatabaseCooker"
@@ -827,6 +869,9 @@ if ! xcodebuild \
     ARCHS="${SOURCE_ARCHS}" \
     ONLY_ACTIVE_ARCH=NO \
     MACOSX_DEPLOYMENT_TARGET="${SOURCE_DEPLOYMENT_TARGET}" \
+    CODE_SIGNING_ALLOWED=NO \
+    CODE_SIGNING_REQUIRED=NO \
+    CODE_SIGN_IDENTITY="" \
     build >"${SOURCE_BUILD_LOG}" 2>&1; then
     echo "Xcode build failed. Last 200 log lines:"
     tail -n 200 "${SOURCE_BUILD_LOG}"

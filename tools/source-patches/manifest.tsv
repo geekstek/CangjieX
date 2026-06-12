@@ -1,0 +1,35 @@
+# CangjieX source-build patch manifest
+# upstream	81e05f070c070af65cac21e8da28ca4ff2d58905
+#
+# Format:
+# id	category	target	purpose
+openvanilla-file-helper-unistd	compile	Frameworks/OpenVanilla/Headers/OVFileHelper.h	Add unistd.h for modern POSIX declarations.
+plainvanilla-config-null	compile	Frameworks/PlainVanilla/Headers/PVModuleSystem.h	Return a null pointer from pointer-returning configDictionaryForModule.
+plainvanilla-property-list-init	compile	Frameworks/PlainVanilla/Source/Cocoa/PVPropertyList.mm	Disambiguate C++ string construction for modern compilers.
+imk-nsstring-nsrange	compile	Loaders/OSX-IMK/NSStringExtension.mm	Use NSUInteger for NSRange length.
+imk-dictionary-window-version-helpers	compile	Loaders/OSX-IMK/CVDictionaryWindow.m	Import LF cross-development helpers used by OS version checks.
+imk-vertical-candidate-protocols	compile	Loaders/OSX-IMK/CVVerticalCandidateController.h	Declare NSTableView delegate/data-source protocols.
+imk-symbol-controller-delegate	compile	Loaders/OSX-IMK/CVSymbolController.h	Declare NSWindowDelegate conformance.
+imk-dictionary-controller-delegates	compile	Loaders/OSX-IMK/CVDictionaryController.h	Declare window, toolbar, and WebKit delegate protocols.
+loader-wildcard-init	compile	Loaders/OSX-IMK/OpenVanillaLoader.mm	Disambiguate OVWildcard string construction.
+loader-default-cangjie	behavior	Loaders/OSX-IMK/OpenVanillaLoader.mm	Default source builds to Cangjie instead of Smart Mandarin.
+loader-public-sqlite-metadata	database	Loaders/OSX-IMK/OpenVanillaLoader.mm	Initialize public SQLite metadata without legacy crypto.
+imk-sendkey-no-carbon-script	compile	Loaders/OSX-IMK/CVSendKey.m	Remove unavailable Carbon script keyboard API use.
+imk-controller-inputtext-fallbacks	input	Loaders/OSX-IMK/OpenVanillaController.mm	Add modern IMK inputText fallbacks.
+user-persistence-mm-sqlite-key	crypto	Loaders/CrossPlatform/OVLoaderUserPersistence.mm	Declare sqlite3_key for source compatibility.
+user-persistence-mm-public-db	crypto	Loaders/CrossPlatform/OVLoaderUserPersistence.mm	Use unencrypted user DB path for public probe builds.
+user-persistence-cpp-sqlite-key	crypto	Loaders/CrossPlatform/OVLoaderUserPersistence.cpp	Declare sqlite3_key for source compatibility.
+user-persistence-cpp-public-db	crypto	Loaders/CrossPlatform/OVLoaderUserPersistence.cpp	Use unencrypted user DB path for public probe builds.
+manjusri-sqlite-key	crypto	Frameworks/Manjusri/Source/BPMFUserPhraseHelper.cpp	Declare sqlite3_key for source compatibility.
+smart-mandarin-sqlite-key	crypto	ModulePackages/OVIMMandarin/OVIMSmartMandarin.cpp	Declare sqlite3_key for source compatibility.
+ovaf-eval-null-entity	compile	ModulePackages/OVAFEval/Evalgelion.h	Return a null pointer from pointer-returning parser path.
+native-bopomofo-include-paths	compile	Frameworks/Formosa/Ruby/native_bopomofo/extconf.rb	Add Formosa/OpenVanilla include paths for modern Ruby mkmf.
+native-bopomofo-ruby-string-api	compile	Frameworks/Formosa/Ruby/native_bopomofo/native_bopomofo.cpp	Use RSTRING_LEN/RSTRING_PTR modern Ruby APIs.
+minotaur-commoncrypto-digest	crypto	Frameworks/Minotaur/Source/Minotaur.cpp	Use CommonCrypto SHA1 and stub obsolete OpenSSL RSA paths.
+project-remove-libcrypto-link	link	Takao.xcodeproj/project.pbxproj	Remove obsolete libcrypto.dylib link entries.
+project-public-sqlite-loader	crypto	Takao.xcodeproj/project.pbxproj	Disable OVLOADER_USE_SQLITE_CRYPTO for public SQLite DB builds.
+project-cangjiex-identifiers	branding	Takao.xcodeproj/project.pbxproj	Replace Yahoo KeyKey service and loader identifiers with CangjieX.
+sqlite-cerod-public-stub	crypto	ExternalLibraries/sqlite-cerod-see/*	Use bundled public SQLite plus SEE/CEROD compatibility stubs.
+cooked-db-placeholder	database	Distributions/Takao/CookedDatabase/KeyKey.db	Create minimal placeholder before cooking the public DB.
+dotmackit-stub-framework	legacy	ExternalLibraries/DotMacKit.framework	Replace obsolete MobileMe DotMacKit dependency with local stub.
+xib-system-target-1060	ui	*.xib	Raise legacy XIB system targets to macOS 10.6 for modern Xcode.

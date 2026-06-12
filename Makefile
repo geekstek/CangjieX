@@ -2,33 +2,39 @@ PKG := build/CangjieX.pkg
 SOURCE_APP := .source/Yahoo! KeyKey.app
 SOURCE_BUILD_DIR := build/source
 SOURCE_PKG := $(SOURCE_BUILD_DIR)/CangjieX.pkg
+SOURCE_BUILD_INFO := $(SOURCE_BUILD_DIR)/source-build-info.txt
+VERSION ?= 1.0.0
 
-.PHONY: build verify check checksum source-app source-build source-verify source-checksum probe-source doctor uninstall clean
+.PHONY: build verify check checksum source-patch-check source-app source-build source-verify source-checksum probe-source doctor uninstall clean
 
 build:
-	./build.sh
+	VERSION="$(VERSION)" ./build.sh
 
 verify: build
-	bash ./verify-pkg.sh $(PKG)
+	EXPECTED_VERSION="$(VERSION)" bash ./verify-pkg.sh $(PKG)
 
-check: verify
+check: source-patch-check verify
 
 checksum: verify
 	shasum -a 256 $(PKG) > $(PKG).sha256
 
-source-app:
+source-patch-check:
+	./tools/check-source-patches.rb
+
+source-app: source-patch-check
 	PROBE_BUILD=1 SOURCE_BUILD_APP="$(SOURCE_APP)" ./tools/probe-upstream-source.sh
 
 source-build: source-app
-	BUILD_DIR="$(SOURCE_BUILD_DIR)" SOURCE_APP="$(SOURCE_APP)" INPUT_METHOD_CONNECTION_NAME="CangjieX_1_Connection" ./build.sh
+	VERSION="$(VERSION)" BUILD_DIR="$(SOURCE_BUILD_DIR)" SOURCE_APP="$(SOURCE_APP)" INPUT_METHOD_CONNECTION_NAME="CangjieX_1_Connection" ./build.sh
 
 source-verify: source-build
-	REQUIRE_ARM64=1 REQUIRE_CANGJIE_DB=1 REQUIRE_ASSOCIATED_PHRASES=1 MAX_LS_MIN_SYSTEM_VERSION=11.0 EXPECTED_INPUT_METHOD_CONNECTION_NAME="CangjieX_1_Connection" bash ./verify-pkg.sh $(SOURCE_PKG)
+	EXPECTED_VERSION="$(VERSION)" REQUIRE_ARM64=1 REQUIRE_CANGJIE_DB=1 REQUIRE_ASSOCIATED_PHRASES=1 MAX_LS_MIN_SYSTEM_VERSION=11.0 EXPECTED_INPUT_METHOD_CONNECTION_NAME="CangjieX_1_Connection" bash ./verify-pkg.sh $(SOURCE_PKG)
 
 source-checksum: source-verify
 	shasum -a 256 $(SOURCE_PKG) > $(SOURCE_PKG).sha256
+	VERSION="$(VERSION)" ./tools/write-source-build-info.sh "$(SOURCE_PKG)" "$(SOURCE_BUILD_INFO)"
 
-probe-source:
+probe-source: source-patch-check
 	./tools/probe-upstream-source.sh
 
 doctor:

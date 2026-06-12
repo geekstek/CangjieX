@@ -20,6 +20,10 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Check source patch manifest
+        shell: bash
+        run: make source-patch-check
+
       - name: Prepare Ruby SQLite dependency
         shell: bash
         run: |
@@ -29,6 +33,7 @@ jobs:
         shell: bash
         run: |
           make source-checksum
+          shasum -a 256 -c build/source/CangjieX.pkg.sha256
 
       - name: Upload package artifact
         uses: actions/upload-artifact@v4
@@ -37,5 +42,20 @@ jobs:
           path: |
             build/source/CangjieX.pkg
             build/source/CangjieX.pkg.sha256
+            build/source/source-build-info.txt
+            tools/source-patches/manifest.tsv
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload build logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CangjieX-build-logs
+          path: |
+            /tmp/CangjieX-upstream-source/source-build.log
+            /tmp/CangjieX-upstream-source/database-cooker.log
+            build/source/components.plist
+            build/source/source-build-info.txt
           if-no-files-found: ignore
           retention-days: 7

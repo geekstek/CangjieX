@@ -7,7 +7,7 @@
 這個倉庫目前提供兩條建置路線：
 
 1. 預設路線會把既有的 Yahoo! KeyKey 輸入法 app 重新整理為 `CangjieX.app`，並輸出 `CangjieX.pkg`。底層二進制仍是舊版 Yahoo! KeyKey，因此 Apple Silicon 會依賴 Rosetta。
-2. 源碼路線會從 `YahooArchive/KeyKey` 拉取 BSD 授權源碼，套用現代 macOS / Xcode 相容補丁，編出 `arm64 + x86_64` universal app，再重新品牌化為 `CangjieX.pkg`。這是目前建議的發佈路線。
+2. 源碼路線會從 `YahooArchive/KeyKey` 拉取固定 commit `81e05f070c070af65cac21e8da28ca4ff2d58905` 的 BSD 授權源碼，套用現代 macOS / Xcode 相容補丁，編出 `arm64 + x86_64` universal app，再重新品牌化為 `CangjieX.pkg`。這是目前建議的發佈路線。
 
 打包過程會移除舊版安裝說明 app 與 Yahoo 更新檢查 app，避免正式發佈包攜帶已過時的 Yahoo 安裝流程與更新入口。
 
@@ -88,7 +88,7 @@ git tag v1.0.1
 git push origin v1.0.1
 ```
 
-也可以在 GitHub Actions 頁面手動執行 `Release` workflow，輸入版本號即可。
+也可以在 GitHub Actions 頁面手動執行 `Release` workflow，輸入版本號即可。版本號必須使用 `x.y.z` 數字格式，例如 `1.0.1`。
 
 目前 CI 發佈的是未簽署 pkg。若要公開給一般使用者下載，建議後續在 Actions 補上 Developer ID 憑證匯入、簽名與 notarization。
 
@@ -100,7 +100,21 @@ git push origin v1.0.1
 make probe-source
 ```
 
-這會在 `/tmp/CangjieX-upstream-source` 拉取 `YahooArchive/KeyKey`，列出 Xcode project 與 target。若已安裝完整 Xcode，可以進一步嘗試：
+這會在 `/tmp/CangjieX-upstream-source` 拉取固定的 `YahooArchive/KeyKey` 上游 commit，列出 Xcode project 與 target。源碼補丁清單集中在：
+
+```text
+tools/source-patches/manifest.tsv
+```
+
+清單記錄每個構建補丁的 id、類型、目標檔案與用途；`tools/probe-upstream-source.sh` 會在套用補丁時檢查清單，避免新增補丁但忘記登記。若要臨時測試其他上游版本，可以用 `SOURCE_UPSTREAM_COMMIT=... make probe-source`，正式發佈仍建議先固定 commit 並更新補丁清單。
+
+若只想檢查補丁清單與 source 構建腳本是否同步：
+
+```sh
+make source-patch-check
+```
+
+若已安裝完整 Xcode，可以進一步嘗試：
 
 ```sh
 PROBE_BUILD=1 make probe-source
@@ -117,6 +131,8 @@ make source-checksum
 ```text
 build/source/CangjieX.pkg
 ```
+
+同時會輸出 `build/source/source-build-info.txt`，記錄 pkg SHA256、上游 commit、補丁清單 SHA256 與構建環境，方便日後排查不同發佈包的來源。
 
 源碼路線會額外檢查輸入法主程式包含 `arm64`、最低系統版本不高於 macOS 11.0，並確認 `KeyKey.db` 內含倉頡碼表與繁體聯想詞資料。聯想詞會由上游開放詞庫與 `tools/common-associated-phrases.txt` 重新產生，並在打包時檢查常用候選順序與簡體字混入。由於目前仍有 DotMacKit、SQLite SEE/CEROD 與部分舊安全驗證路徑的 probe-only 替代實作，智慧注音與舊加密使用者資料庫仍不作為發佈重點。
 

@@ -8,6 +8,11 @@ PRODUCT_CHINESE_NAME="${PRODUCT_CHINESE_NAME:-倉頡星}"
 PRODUCT_SIMPLIFIED_NAME="${PRODUCT_SIMPLIFIED_NAME:-仓颉星}"
 VERSION="${VERSION:-1.0.0}"
 
+if [[ ! "${VERSION}" =~ ^[0-9]+[.][0-9]+[.][0-9]+$ ]]; then
+    echo "VERSION must use numeric x.y.z format, got: ${VERSION}" >&2
+    exit 1
+fi
+
 APP_BUNDLE_ID="${APP_BUNDLE_ID:-io.github.geekstek.inputmethod.CangjieX}"
 COMPONENT_ID="${COMPONENT_ID:-io.github.geekstek.cangjiex.inputmethod}"
 INPUT_METHOD_CONNECTION_NAME="${INPUT_METHOD_CONNECTION_NAME:-}"
@@ -311,12 +316,51 @@ lock_component_install_path() {
     set_bool_key "${plist_file}" ":${matched_index}:BundleHasStrictIdentifier"
 }
 
+scrub_component_package_metadata() {
+    local component_pkg="$1"
+    local payload_root="$2"
+    local tmp_dir
+    local expanded_dir
+    local bom_list
+    local cpio_log
+
+    tmp_dir="$(mktemp -d)"
+    expanded_dir="${tmp_dir}/component"
+    bom_list="${tmp_dir}/bom.txt"
+    cpio_log="${tmp_dir}/payload-cpio.log"
+
+    pkgutil --expand "${component_pkg}" "${expanded_dir}"
+
+    lsbom "${expanded_dir}/Bom" | ruby -ne 'print unless $_ =~ %r{(^|/)\._}' >"${bom_list}"
+    mkbom -i "${bom_list}" "${expanded_dir}/Bom"
+
+    if [[ -d "${expanded_dir}/Scripts" ]]; then
+        rm -f "${expanded_dir}/Scripts"/._*
+    fi
+
+    if ! (
+        cd "${payload_root}"
+        find . ! -name "._*" -print | cpio -o -H odc -R root:wheel 2>"${cpio_log}" | gzip -c >"${expanded_dir}/Payload"
+    ); then
+        echo "Unable to rebuild package payload without AppleDouble metadata." >&2
+        cat "${cpio_log}" >&2
+        rm -rf "${tmp_dir}"
+        exit 1
+    fi
+
+    rm -f "${component_pkg}"
+    pkgutil --flatten "${expanded_dir}" "${component_pkg}" >/dev/null
+    rm -rf "${tmp_dir}"
+}
+
 find "${STAGE_DIR}" -name ".DS_Store" -delete
 find "${STAGE_DIR}" -name "._*" -delete
 xattr -cr "${STAGE_DIR}" >/dev/null 2>&1 || true
 
 if [[ -n "${APP_SIGN_IDENTITY}" ]]; then
     codesign --force --deep --timestamp --options runtime --sign "${APP_SIGN_IDENTITY}" "${STAGED_APP}"
+else
+    codesign --force --deep --timestamp=none --sign - "${STAGED_APP}"
 fi
 
 pkgbuild --analyze --root "${STAGE_DIR}" "${COMPONENT_PLIST}" >/dev/null
@@ -331,6 +375,8 @@ pkgbuild \
     --install-location / \
     --ownership recommended \
     "${COMPONENT_PKG}"
+
+scrub_component_package_metadata "${COMPONENT_PKG}" "${STAGE_DIR}"
 
 productbuild_args=(
     --product requirement.plist

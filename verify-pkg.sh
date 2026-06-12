@@ -94,8 +94,15 @@ fi
 pass "payload contents"
 
 apple_double_count="$(grep -c '/\._' "${payload_files}" || true)"
-if [[ "${apple_double_count}" != "0" ]]; then
-    echo "warning: payload contains ${apple_double_count} AppleDouble metadata records from macOS provenance attributes"
+[[ "${apple_double_count}" == "0" ]] \
+    || fail "payload contains ${apple_double_count} AppleDouble metadata records"
+
+script_apple_double_count="$(find "${component_dir}/Scripts" -name '._*' -print 2>/dev/null | wc -l | tr -d '[:space:]')"
+[[ "${script_apple_double_count}" == "0" ]] \
+    || fail "scripts contain ${script_apple_double_count} AppleDouble metadata records"
+
+if lsbom "${component_dir}/Bom" | grep -Eq '(^|/)\._'; then
+    fail "bill of materials contains AppleDouble metadata records"
 fi
 
 stage_info_plist="${BUILD_DIR}/stage/Library/Input Methods/${PRODUCT_NAME}.app/Contents/Info.plist"
@@ -110,6 +117,20 @@ if [[ -f "${stage_info_plist}" ]]; then
         || fail "bundle name is ${actual_bundle_name}, expected ${PRODUCT_NAME}"
     [[ "${actual_input_source_id}" == "${APP_BUNDLE_ID}" ]] \
         || fail "input source id is ${actual_input_source_id}, expected ${APP_BUNDLE_ID}"
+
+    if [[ -n "${EXPECTED_VERSION:-}" ]]; then
+        actual_bundle_version="$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "${stage_info_plist}")"
+        actual_short_version="$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "${stage_info_plist}")"
+
+        [[ "${actual_bundle_version}" == "${EXPECTED_VERSION}" ]] \
+            || fail "bundle version is ${actual_bundle_version}, expected ${EXPECTED_VERSION}"
+        [[ "${actual_short_version}" == "${EXPECTED_VERSION}" ]] \
+            || fail "short version is ${actual_short_version}, expected ${EXPECTED_VERSION}"
+
+        grep -q "version=\"${EXPECTED_VERSION}\"" "${package_info}" \
+            || fail "component package version is not ${EXPECTED_VERSION}"
+        pass "version (${EXPECTED_VERSION})"
+    fi
 
     if [[ -n "${EXPECTED_INPUT_METHOD_CONNECTION_NAME:-}" ]]; then
         actual_connection_name="$(/usr/libexec/PlistBuddy -c "Print :InputMethodConnectionName" "${stage_info_plist}")"
@@ -151,6 +172,12 @@ if [[ -f "${stage_info_plist}" ]]; then
         fi
 
         echo "ok: executable architectures: ${executable_archs}"
+    fi
+
+    if codesign --verify --deep --strict "${BUILD_DIR}/stage/Library/Input Methods/${PRODUCT_NAME}.app" >/dev/null 2>&1; then
+        pass "app code signature"
+    else
+        fail "app code signature is invalid"
     fi
 
     if [[ "${REQUIRE_CANGJIE_DB:-0}" == "1" ]]; then
