@@ -75,6 +75,21 @@ if [[ -f "${stage_info_plist}" ]]; then
     [[ "${actual_input_source_id}" == "${APP_BUNDLE_ID}" ]] \
         || fail "input source id is ${actual_input_source_id}, expected ${APP_BUNDLE_ID}"
     pass "app Info.plist"
+
+    preferences_name="$(/usr/libexec/PlistBuddy -c "Print :CFBundleName" "${BUILD_DIR}/stage/Library/Input Methods/${PRODUCT_NAME}.app/Contents/SharedSupport/Preferences.app/Contents/Info.plist")"
+    phrase_editor_name="$(/usr/libexec/PlistBuddy -c "Print :CFBundleName" "${BUILD_DIR}/stage/Library/Input Methods/${PRODUCT_NAME}.app/Contents/SharedSupport/PhraseEditor.app/Contents/Info.plist")"
+    about_title="$(/usr/libexec/PlistBuddy -c 'Print :"About Yahoo! KeyKey"' "${BUILD_DIR}/stage/Library/Input Methods/${PRODUCT_NAME}.app/Contents/Resources/English.lproj/Localizable.strings")"
+    phrase_editor_warning="$(/usr/libexec/PlistBuddy -c 'Print :"Yahoo! KeyKey is not running."' "${BUILD_DIR}/stage/Library/Input Methods/${PRODUCT_NAME}.app/Contents/SharedSupport/PhraseEditor.app/Contents/Resources/English.lproj/Localizable.strings")"
+
+    [[ "${preferences_name}" == "${PRODUCT_NAME} Preferences" ]] \
+        || fail "preferences app name is ${preferences_name}"
+    [[ "${phrase_editor_name}" == "${PRODUCT_NAME} Phrase Editor" ]] \
+        || fail "phrase editor app name is ${phrase_editor_name}"
+    [[ "${about_title}" == "About ${PRODUCT_NAME}" ]] \
+        || fail "about title is ${about_title}"
+    [[ "${phrase_editor_warning}" == "${PRODUCT_NAME} is not running." ]] \
+        || fail "phrase editor warning is ${phrase_editor_warning}"
+    pass "visible branding"
 else
     echo "warning: ${stage_info_plist} is missing; skipping app Info.plist verification"
 fi

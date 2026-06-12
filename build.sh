@@ -78,6 +78,182 @@ set_localized_bundle_name "${STAGED_APP}/Contents/Resources/English.lproj/InfoPl
 set_localized_bundle_name "${STAGED_APP}/Contents/Resources/zh_TW.lproj/InfoPlist.strings" "${PRODUCT_CHINESE_NAME}"
 set_localized_bundle_name "${STAGED_APP}/Contents/Resources/zh_CN.lproj/InfoPlist.strings" "${PRODUCT_SIMPLIFIED_NAME}"
 
+plist_key_path() {
+    local key="$1"
+
+    key="${key//\\/\\\\}"
+    key="${key//\"/\\\"}"
+    printf ':"%s"' "${key}"
+}
+
+set_strings_value() {
+    local strings_file="$1"
+    local key="$2"
+    local value="$3"
+    local key_path
+
+    if [[ ! -f "${strings_file}" ]]; then
+        return
+    fi
+
+    key_path="$(plist_key_path "${key}")"
+
+    if /usr/libexec/PlistBuddy -c "Print ${key_path}" "${strings_file}" >/dev/null 2>&1; then
+        /usr/libexec/PlistBuddy -c "Set ${key_path} ${value}" "${strings_file}"
+    else
+        /usr/libexec/PlistBuddy -c "Add ${key_path} string ${value}" "${strings_file}"
+    fi
+}
+
+set_info_plist_string() {
+    local plist_file="$1"
+    local key="$2"
+    local value="$3"
+
+    if [[ ! -f "${plist_file}" ]]; then
+        return
+    fi
+
+    if /usr/libexec/PlistBuddy -c "Print :${key}" "${plist_file}" >/dev/null 2>&1; then
+        /usr/libexec/PlistBuddy -c "Set :${key} ${value}" "${plist_file}"
+    else
+        /usr/libexec/PlistBuddy -c "Add :${key} string ${value}" "${plist_file}"
+    fi
+}
+
+brand_helper_app() {
+    local app_dir="$1"
+    local english_name="$2"
+    local traditional_name="$3"
+    local simplified_name="$4"
+    local copyright_text="CangjieX contributors. Based on Yahoo! KeyKey and OpenVanilla."
+
+    set_info_plist_string "${app_dir}/Contents/Info.plist" "CFBundleName" "${english_name}"
+    set_info_plist_string "${app_dir}/Contents/Info.plist" "CFBundleDisplayName" "${english_name}"
+    set_info_plist_string "${app_dir}/Contents/Info.plist" "NSHumanReadableCopyright" "${copyright_text}"
+
+    set_strings_value "${app_dir}/Contents/Resources/English.lproj/InfoPlist.strings" "CFBundleName" "${english_name}"
+    set_strings_value "${app_dir}/Contents/Resources/English.lproj/InfoPlist.strings" "CFBundleDisplayName" "${english_name}"
+    set_strings_value "${app_dir}/Contents/Resources/English.lproj/InfoPlist.strings" "NSHumanReadableCopyright" "${copyright_text}"
+
+    set_strings_value "${app_dir}/Contents/Resources/zh_TW.lproj/InfoPlist.strings" "CFBundleName" "${traditional_name}"
+    set_strings_value "${app_dir}/Contents/Resources/zh_TW.lproj/InfoPlist.strings" "CFBundleDisplayName" "${traditional_name}"
+    set_strings_value "${app_dir}/Contents/Resources/zh_TW.lproj/InfoPlist.strings" "NSHumanReadableCopyright" "${copyright_text}"
+
+    set_strings_value "${app_dir}/Contents/Resources/zh_CN.lproj/InfoPlist.strings" "CFBundleName" "${simplified_name}"
+    set_strings_value "${app_dir}/Contents/Resources/zh_CN.lproj/InfoPlist.strings" "CFBundleDisplayName" "${simplified_name}"
+    set_strings_value "${app_dir}/Contents/Resources/zh_CN.lproj/InfoPlist.strings" "NSHumanReadableCopyright" "${copyright_text}"
+}
+
+brand_visible_strings() {
+    set_strings_value "${STAGED_APP}/Contents/Resources/English.lproj/Localizable.strings" \
+        "About Yahoo! KeyKey" \
+        "About ${PRODUCT_DISPLAY_NAME}"
+    set_strings_value "${STAGED_APP}/Contents/Resources/English.lproj/Localizable.strings" \
+        "<p class=\"credit\">2008-2010 Yahoo! Taiwan All Rights Reserved.</p>" \
+        "<p>CangjieX contributors. Based on Yahoo! KeyKey and OpenVanilla.</p>"
+    set_strings_value "${STAGED_APP}/Contents/Resources/zh_TW.lproj/Localizable.strings" \
+        "About Yahoo! KeyKey" \
+        "關於${PRODUCT_CHINESE_NAME}"
+    set_strings_value "${STAGED_APP}/Contents/Resources/zh_TW.lproj/Localizable.strings" \
+        "<p class=\"credit\">2008-2010 Yahoo! Taiwan All Rights Reserved.</p>" \
+        "<p>CangjieX contributors. Based on Yahoo! KeyKey and OpenVanilla.</p>"
+    set_strings_value "${STAGED_APP}/Contents/Resources/zh_CN.lproj/Localizable.strings" \
+        "About Yahoo! KeyKey" \
+        "关于${PRODUCT_SIMPLIFIED_NAME}"
+    set_strings_value "${STAGED_APP}/Contents/Resources/zh_CN.lproj/Localizable.strings" \
+        "<p class=\"credit\">2008-2010 Yahoo! Taiwan All Rights Reserved.</p>" \
+        "<p>CangjieX contributors. Based on Yahoo! KeyKey and OpenVanilla.</p>"
+
+    brand_helper_app \
+        "${STAGED_APP}/Contents/SharedSupport/Preferences.app" \
+        "${PRODUCT_DISPLAY_NAME} Preferences" \
+        "${PRODUCT_CHINESE_NAME}偏好設定" \
+        "${PRODUCT_SIMPLIFIED_NAME}偏好设置"
+    brand_helper_app \
+        "${STAGED_APP}/Contents/SharedSupport/PhraseEditor.app" \
+        "${PRODUCT_DISPLAY_NAME} Phrase Editor" \
+        "${PRODUCT_CHINESE_NAME}詞彙編輯程式" \
+        "${PRODUCT_SIMPLIFIED_NAME}词汇编辑工具"
+
+    set_strings_value "${STAGED_APP}/Contents/SharedSupport/PhraseEditor.app/Contents/Resources/English.lproj/Localizable.strings" \
+        "Yahoo! KeyKey is not running." \
+        "${PRODUCT_DISPLAY_NAME} is not running."
+    set_strings_value "${STAGED_APP}/Contents/SharedSupport/PhraseEditor.app/Contents/Resources/English.lproj/Localizable.strings" \
+        "Since Yahoo! KeyKey is not running, you cannot use the Phrase Editor to alter your phrases." \
+        "Since ${PRODUCT_DISPLAY_NAME} is not running, you cannot use the Phrase Editor to edit your phrases."
+    set_strings_value "${STAGED_APP}/Contents/SharedSupport/PhraseEditor.app/Contents/Resources/English.lproj/Localizable.strings" \
+        "If you are not runnung Yahoo! KeyKey, you are not able to export your database." \
+        "If ${PRODUCT_DISPLAY_NAME} is not running, you cannot export your database."
+    set_strings_value "${STAGED_APP}/Contents/SharedSupport/PhraseEditor.app/Contents/Resources/English.lproj/Localizable.strings" \
+        "If you are not runnung Yahoo! KeyKey, you are not able to import your database." \
+        "If ${PRODUCT_DISPLAY_NAME} is not running, you cannot import your database."
+
+    set_strings_value "${STAGED_APP}/Contents/SharedSupport/PhraseEditor.app/Contents/Resources/zh_TW.lproj/Localizable.strings" \
+        "Yahoo! KeyKey is not running." \
+        "${PRODUCT_CHINESE_NAME}並不在執行中"
+    set_strings_value "${STAGED_APP}/Contents/SharedSupport/PhraseEditor.app/Contents/Resources/zh_TW.lproj/Localizable.strings" \
+        "Since Yahoo! KeyKey is not running, you cannot use the Phrase Editor to alter your phrases." \
+        "因為您沒有執行${PRODUCT_CHINESE_NAME}，因此無法使用詞彙編輯程式。"
+    set_strings_value "${STAGED_APP}/Contents/SharedSupport/PhraseEditor.app/Contents/Resources/zh_TW.lproj/Localizable.strings" \
+        "If you are not runnung Yahoo! KeyKey, you are not able to export your database." \
+        "如果${PRODUCT_CHINESE_NAME}不在使用中，您便無法匯出自訂詞資料庫。"
+    set_strings_value "${STAGED_APP}/Contents/SharedSupport/PhraseEditor.app/Contents/Resources/zh_TW.lproj/Localizable.strings" \
+        "If you are not runnung Yahoo! KeyKey, you are not able to import your database." \
+        "如果${PRODUCT_CHINESE_NAME}不在使用中，您便無法匯入自訂詞資料庫。"
+
+    set_strings_value "${STAGED_APP}/Contents/SharedSupport/PhraseEditor.app/Contents/Resources/zh_CN.lproj/Localizable.strings" \
+        "Yahoo! KeyKey is not running." \
+        "${PRODUCT_SIMPLIFIED_NAME}并不在执行中"
+    set_strings_value "${STAGED_APP}/Contents/SharedSupport/PhraseEditor.app/Contents/Resources/zh_CN.lproj/Localizable.strings" \
+        "Since Yahoo! KeyKey is not running, you cannot use the Phrase Editor to alter your phrases." \
+        "因为您没有执行${PRODUCT_SIMPLIFIED_NAME}，因此无法使用词汇编辑工具。"
+    set_strings_value "${STAGED_APP}/Contents/SharedSupport/PhraseEditor.app/Contents/Resources/zh_CN.lproj/Localizable.strings" \
+        "If you are not runnung Yahoo! KeyKey, you are not able to export your database." \
+        "如果${PRODUCT_SIMPLIFIED_NAME}不在使用中，您便无法导出自订词数据库。"
+    set_strings_value "${STAGED_APP}/Contents/SharedSupport/PhraseEditor.app/Contents/Resources/zh_CN.lproj/Localizable.strings" \
+        "If you are not runnung Yahoo! KeyKey, you are not able to import your database." \
+        "如果${PRODUCT_SIMPLIFIED_NAME}不在使用中，您便无法导入自订词数据库。"
+
+    set_strings_value "${STAGED_APP}/Contents/SharedSupport/Preferences.app/Contents/Resources/English.lproj/Localizable.strings" \
+        "If you are nor running Yahoo! KeyKey, you are not able to check for update." \
+        "If ${PRODUCT_DISPLAY_NAME} is not running, you cannot check for updates."
+    set_strings_value "${STAGED_APP}/Contents/SharedSupport/Preferences.app/Contents/Resources/English.lproj/Localizable.strings" \
+        "If you are not runnung Yahoo! KeyKey, you are not able to export your database." \
+        "If ${PRODUCT_DISPLAY_NAME} is not running, you cannot export your database."
+    set_strings_value "${STAGED_APP}/Contents/SharedSupport/Preferences.app/Contents/Resources/English.lproj/Localizable.strings" \
+        "Yahoo! KeyKey user phrases database was not found on your iDisk." \
+        "${PRODUCT_DISPLAY_NAME} user phrases database was not found on your iDisk."
+
+    set_strings_value "${STAGED_APP}/Contents/SharedSupport/Preferences.app/Contents/Resources/zh_TW.lproj/Localizable.strings" \
+        "If you are nor running Yahoo! KeyKey, you are not able to check for update." \
+        "如果${PRODUCT_CHINESE_NAME}不在執行中，便無法執行更新檢查功能。"
+    set_strings_value "${STAGED_APP}/Contents/SharedSupport/Preferences.app/Contents/Resources/zh_TW.lproj/Localizable.strings" \
+        "If you are not runnung Yahoo! KeyKey, you are not able to export your database." \
+        "如果${PRODUCT_CHINESE_NAME}不在使用中，您便無法匯出自訂詞資料庫。"
+    set_strings_value "${STAGED_APP}/Contents/SharedSupport/Preferences.app/Contents/Resources/zh_TW.lproj/Localizable.strings" \
+        "If you are not runnung Yahoo! KeyKey, you are not able to import your database." \
+        "如果${PRODUCT_CHINESE_NAME}不在使用中，您便無法匯入自訂詞資料庫。"
+    set_strings_value "${STAGED_APP}/Contents/SharedSupport/Preferences.app/Contents/Resources/zh_TW.lproj/Localizable.strings" \
+        "Yahoo! KeyKey user phrases database was not found on your iDisk." \
+        "在您的 iDisk 上找不到${PRODUCT_CHINESE_NAME}的自訂詞資料庫備份。"
+
+    set_strings_value "${STAGED_APP}/Contents/SharedSupport/Preferences.app/Contents/Resources/zh_CN.lproj/Localizable.strings" \
+        "If you are nor running Yahoo! KeyKey, you are not able to check for update." \
+        "如果${PRODUCT_SIMPLIFIED_NAME}不在执行中，便无法执行更新检查功能。"
+    set_strings_value "${STAGED_APP}/Contents/SharedSupport/Preferences.app/Contents/Resources/zh_CN.lproj/Localizable.strings" \
+        "If you are not runnung Yahoo! KeyKey, you are not able to export your database." \
+        "如果${PRODUCT_SIMPLIFIED_NAME}不在使用中，您便无法导出自订词数据库。"
+    set_strings_value "${STAGED_APP}/Contents/SharedSupport/Preferences.app/Contents/Resources/zh_CN.lproj/Localizable.strings" \
+        "If you are not runnung Yahoo! KeyKey, you are not able to import your database." \
+        "如果${PRODUCT_SIMPLIFIED_NAME}不在使用中，您便无法导入自订词数据库。"
+    set_strings_value "${STAGED_APP}/Contents/SharedSupport/Preferences.app/Contents/Resources/zh_CN.lproj/Localizable.strings" \
+        "Yahoo! KeyKey user phrases database was not found on your iDisk." \
+        "在您的 iDisk 上找不到${PRODUCT_SIMPLIFIED_NAME}的自订词数据库备份。"
+}
+
+brand_visible_strings
+
 set_bool_key() {
     local plist_file="$1"
     local key_path="$2"
