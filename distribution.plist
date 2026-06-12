@@ -1,27 +1,27 @@
 <?xml version="1.0" encoding="utf-8" standalone="no"?>
 <installer-gui-script minSpecVersion="1">
-    <title>Yahoo! KeyKey</title>
-    <organization>com.yahoo</organization>
+    <title>CangjieX</title>
+    <organization>io.github.geekstek</organization>
     <domains enable_localSystem="true"/>
     <options customize="never" require-scripts="true" rootVolumeOnly="true" />
     <!-- Define documents displayed at various steps -->
     <license    file="License.rtf"    mime-type="application/rtf" />
     <!-- List all component packages -->
-    <pkg-ref id="com.yahoo.keykey.installerpackage"
+    <pkg-ref id="io.github.geekstek.cangjiex.inputmethod"
              version="0"
-             auth="root">YahooKeyKeyApp.pkg</pkg-ref>
+             auth="root">CangjieXComponent.pkg</pkg-ref>
     <!-- List them again here. They can now be organized
          as a hierarchy if you want. -->
     <choices-outline>
-        <line choice="com.yahoo.keykey.installerpackage"/>
+        <line choice="io.github.geekstek.cangjiex.inputmethod"/>
     </choices-outline>
     <!-- Define each choice above -->
     <choice
-        id="com.yahoo.keykey.installerpackage"
+        id="io.github.geekstek.cangjiex.inputmethod"
         visible="false"
-        title="Yahoo! KeyKey"
-        description="Yahoo! KeyKey"
+        title="CangjieX"
+        description="CangjieX / 倉頡星"
         start_selected="true">
-      <pkg-ref id="com.yahoo.keykey.installerpackage" onConclusion="RequireRestart"/>
+      <pkg-ref id="io.github.geekstek.cangjiex.inputmethod" onConclusion="RequireLogout"/>
     </choice>
 </installer-gui-script>

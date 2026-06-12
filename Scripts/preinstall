@@ -1,4 +1,16 @@
 #!/bin/bash
-echo "Start preflight script"
-echo "End preflight script"
+set -e
+
+echo "Preparing CangjieX installation"
+
+for target in \
+    "/Library/Input Methods/CangjieX.app" \
+    "/Library/Input Methods/Yahoo! KeyKey.app"
+do
+    if [ -d "$target" ]; then
+        echo "Removing old input method bundle: $target"
+        rm -rf "$target"
+    fi
+done
+
 exit 0
