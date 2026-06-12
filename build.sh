@@ -10,6 +10,7 @@ VERSION="${VERSION:-1.0.0}"
 
 APP_BUNDLE_ID="${APP_BUNDLE_ID:-io.github.geekstek.inputmethod.CangjieX}"
 COMPONENT_ID="${COMPONENT_ID:-io.github.geekstek.cangjiex.inputmethod}"
+INPUT_METHOD_CONNECTION_NAME="${INPUT_METHOD_CONNECTION_NAME:-}"
 
 APP_SIGN_IDENTITY="${APP_SIGN_IDENTITY:-}"
 INSTALLER_SIGN_IDENTITY="${INSTALLER_SIGN_IDENTITY:-${SIGN_IDENTITY:-}}"
@@ -21,7 +22,7 @@ COMPONENT_PLIST="${BUILD_DIR}/components.plist"
 COMPONENT_PKG="${BUILD_DIR}/${PRODUCT_NAME}Component.pkg"
 OUTPUT_PKG="${BUILD_DIR}/${PRODUCT_NAME}.pkg"
 
-SOURCE_APP="root/Library/Input Methods/Yahoo! KeyKey.app"
+SOURCE_APP="${SOURCE_APP:-root/Library/Input Methods/Yahoo! KeyKey.app}"
 STAGED_INPUT_METHODS_DIR="${STAGE_DIR}/Library/Input Methods"
 STAGED_APP="${STAGED_INPUT_METHODS_DIR}/${PRODUCT_NAME}.app"
 STAGED_INFO_PLIST="${STAGED_APP}/Contents/Info.plist"
@@ -31,12 +32,27 @@ if [[ ! -d "${SOURCE_APP}" ]]; then
     exit 1
 fi
 
-rm -rf "${BUILD_DIR}"
-mkdir -p "${BUILD_DIR}"
+prepare_build_dir() {
+    if [[ -e "${BUILD_DIR}" ]]; then
+        if ! rm -rf "${BUILD_DIR}" 2>/dev/null; then
+            local stale_build_dir="/tmp/${PRODUCT_NAME}-stale-build-$(date +%Y%m%d%H%M%S)"
 
-ditto --norsrc --noextattr --noqtn --noacl --nopersistRootless root "${STAGE_DIR}"
+            echo "Unable to remove ${BUILD_DIR}; moving it to ${stale_build_dir}" >&2
+            mv "${BUILD_DIR}" "${stale_build_dir}" || {
+                echo "Unable to clear ${BUILD_DIR}. Please remove it manually." >&2
+                exit 1
+            }
+        fi
+    fi
+
+    mkdir -p "${BUILD_DIR}"
+}
+
+prepare_build_dir
+
 ditto --norsrc --noextattr --noqtn --noacl --nopersistRootless Scripts "${SCRIPTS_STAGE_DIR}"
-mv "${STAGED_INPUT_METHODS_DIR}/Yahoo! KeyKey.app" "${STAGED_APP}"
+mkdir -p "${STAGED_INPUT_METHODS_DIR}"
+ditto --norsrc --noextattr --noqtn --noacl --nopersistRootless "${SOURCE_APP}" "${STAGED_APP}"
 rm -rf \
     "${STAGED_APP}/Contents/SharedSupport/DownloadUpdate.app" \
     "${STAGED_APP}/Contents/SharedSupport/InstallerHelp.app"
@@ -48,6 +64,10 @@ rm -rf \
 /usr/libexec/PlistBuddy -c "Set :CFBundleURLTypes:0:CFBundleURLName ${PRODUCT_DISPLAY_NAME}" "${STAGED_INFO_PLIST}"
 /usr/libexec/PlistBuddy -c "Set :CFBundleURLTypes:0:CFBundleURLSchemes:0 cangjiex" "${STAGED_INFO_PLIST}"
 /usr/libexec/PlistBuddy -c "Set :NSHumanReadableCopyright CangjieX contributors. Based on Yahoo! KeyKey and OpenVanilla." "${STAGED_INFO_PLIST}"
+
+if [[ -n "${INPUT_METHOD_CONNECTION_NAME}" ]]; then
+    /usr/libexec/PlistBuddy -c "Set :InputMethodConnectionName ${INPUT_METHOD_CONNECTION_NAME}" "${STAGED_INFO_PLIST}"
+fi
 
 if /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "${STAGED_INFO_PLIST}" >/dev/null 2>&1; then
     /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${VERSION}" "${STAGED_INFO_PLIST}"

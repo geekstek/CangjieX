@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Build and verify package
+    runs-on: macos-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build, verify, and checksum
+        shell: bash
+        run: |
+          make checksum
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CangjieX-pkg
+          path: |
+            build/CangjieX.pkg
+            build/CangjieX.pkg.sha256
+          if-no-files-found: ignore
+          retention-days: 7

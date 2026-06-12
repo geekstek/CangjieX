@@ -52,7 +52,7 @@ jobs:
       - name: Generate checksum
         shell: bash
         run: |
-          shasum -a 256 build/CangjieX.pkg > build/CangjieX.pkg.sha256
+          make checksum
 
       - name: Publish GitHub release
         env:

@@ -4,7 +4,10 @@
 
 ## 目前狀態
 
-這個倉庫目前是發佈打包倉庫：它會把既有的 Yahoo! KeyKey 輸入法 app 重新整理為 `CangjieX.app`，並輸出 `CangjieX.pkg`。底層二進制仍是舊版 Yahoo! KeyKey，因此 Apple Silicon 目前仍依賴 Rosetta；真正的 arm64 原生支援需要後續從 YahooArchive/KeyKey 或 bency/YahooKeyKey 的源碼重建。
+這個倉庫目前提供兩條建置路線：
+
+1. 預設路線會把既有的 Yahoo! KeyKey 輸入法 app 重新整理為 `CangjieX.app`，並輸出 `CangjieX.pkg`。底層二進制仍是舊版 Yahoo! KeyKey，因此 Apple Silicon 會依賴 Rosetta。
+2. 實驗性源碼路線會從 `YahooArchive/KeyKey` 拉取 BSD 授權源碼，套用現代 macOS / Xcode 相容補丁，編出 `arm64 + x86_64` universal app，再重新品牌化為 `CangjieX.pkg`。
 
 打包過程會移除舊版安裝說明 app 與 Yahoo 更新檢查 app，避免正式發佈包攜帶已過時的 Yahoo 安裝流程與更新入口。
 
@@ -23,6 +26,30 @@
 
 ```sh
 ./build.sh
+```
+
+也可以使用 make：
+
+```sh
+make verify
+```
+
+若遇到 Xcode、git、pkgbuild 相關錯誤，可以先跑環境體檢：
+
+```sh
+make doctor
+```
+
+如果 `make` 本身也報 `xcrun` / `libxcrun` 錯誤，請直接執行：
+
+```sh
+./tools/doctor.sh
+```
+
+需要同時產生校驗檔時：
+
+```sh
+make checksum
 ```
 
 輸出檔案：
@@ -65,6 +92,42 @@ git push origin v1.0.1
 
 目前 CI 發佈的是未簽署 pkg。若要公開給一般使用者下載，建議後續在 Actions 補上 Developer ID 憑證匯入、簽名與 notarization。
 
+## 源碼構建探測
+
+若要檢查上游 Yahoo! KeyKey 源碼工程：
+
+```sh
+make probe-source
+```
+
+這會在 `/tmp/CangjieX-upstream-source` 拉取 `YahooArchive/KeyKey`，列出 Xcode project 與 target。若已安裝完整 Xcode，可以進一步嘗試：
+
+```sh
+PROBE_BUILD=1 make probe-source
+```
+
+若要直接產生實驗性的 Apple Silicon 原生 pkg：
+
+```sh
+make source-checksum
+```
+
+這會輸出實驗性源碼安裝包：
+
+```text
+build/source/CangjieX.pkg
+```
+
+源碼路線會額外檢查輸入法主程式包含 `arm64`、最低系統版本不高於 macOS 11.0，並確認 `KeyKey.db` 內含倉頡碼表資料。由於目前仍有 DotMacKit、SQLite SEE/CEROD 與部分舊安全驗證路徑的 probe-only 替代實作，智慧注音、完整聯想詞與舊加密資料庫仍未完全重建，這條路線暫時只建議用於開發測試。
+
+預設穩定包仍輸出到：
+
+```text
+build/CangjieX.pkg
+```
+
+這樣測試源碼包失敗時，可以重新安裝穩定包恢復輸入法。
+
 ## 安裝行為
 
 安裝包會安裝到：
@@ -76,6 +139,12 @@ git push origin v1.0.1
 安裝前會移除舊的 `/Library/Input Methods/CangjieX.app` 與 `/Library/Input Methods/Yahoo! KeyKey.app`，避免同一套舊輸入法服務被 macOS 重複註冊。這不會刪除使用者詞庫或偏好資料。
 
 安裝後請登出再登入，然後到「系統設定 > 鍵盤 > 輸入方式」啟用 CangjieX。
+
+卸載：
+
+```sh
+./uninstall.sh
+```
 
 ## 授權
 
