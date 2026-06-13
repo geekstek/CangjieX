@@ -14,6 +14,8 @@ SOURCE_DEPLOYMENT_TARGET="${SOURCE_DEPLOYMENT_TARGET:-11.0}"
 SOURCE_BUILD_APP="${SOURCE_BUILD_APP:-}"
 SOURCE_BUILD_LOG="${SOURCE_BUILD_LOG:-${SOURCE_PROBE_DIR}/source-build.log}"
 SOURCE_DATABASE_LOG="${SOURCE_DATABASE_LOG:-${SOURCE_PROBE_DIR}/database-cooker.log}"
+PROJECT_URL="${PROJECT_URL:-https://github.com/geekstek/CangjieX}"
+PREFERENCES_BUNDLE_ID="${PREFERENCES_BUNDLE_ID:-io.github.geekstek.cangjiex.preferences}"
 SOURCE_PATCH_IDS=""
 APPLIED_SOURCE_PATCHES=""
 
@@ -142,17 +144,35 @@ apply_source_compat_patches() {
     local dictionary_controller_header="${source_root}/Loaders/OSX-IMK/CVDictionaryController.h"
     local symbol_controller_header="${source_root}/Loaders/OSX-IMK/CVSymbolController.h"
     local vertical_candidate_header="${source_root}/Loaders/OSX-IMK/CVVerticalCandidateController.h"
+    local about_controller_source="${source_root}/Loaders/OSX-IMK/CVAboutController.mm"
+    local open_vanilla_loader_header="${source_root}/Loaders/OSX-IMK/OpenVanillaLoader.h"
     local open_vanilla_loader_source="${source_root}/Loaders/OSX-IMK/OpenVanillaLoader.mm"
+    local open_vanilla_controller_source="${source_root}/Loaders/OSX-IMK/OpenVanillaController.mm"
+    local open_vanilla_config_header="${source_root}/Loaders/OSX-IMK/OpenVanillaConfig.h"
+    local open_vanilla_main_source="${source_root}/Loaders/OSX-IMK/main.mm"
     local send_key_source="${source_root}/Loaders/OSX-IMK/CVSendKey.m"
     local loader_user_persistence_mm="${source_root}/Loaders/CrossPlatform/OVLoaderUserPersistence.mm"
     local loader_user_persistence_cpp="${source_root}/Loaders/CrossPlatform/OVLoaderUserPersistence.cpp"
     local bpmf_user_phrase_helper="${source_root}/Frameworks/Manjusri/Source/BPMFUserPhraseHelper.cpp"
     local smart_mandarin_source="${source_root}/ModulePackages/OVIMMandarin/OVIMSmartMandarin.cpp"
+    local associated_phrase_source="${source_root}/ModulePackages/OVIMMandarin/OVAFAssociatedPhrase.cpp"
+    local bopomofo_correction_source="${source_root}/ModulePackages/OVAFBopomofoCorrection/OVAFBopomofoCorrection.cpp"
+    local full_width_source="${source_root}/ModulePackages/OVOFFullWidthCharacter/OVOFFullWidthCharacter.h"
+    local han_convert_source="${source_root}/ModulePackages/OVOFHanConvert/OVOFHanConvert.h"
+    local preference_app_dir="${source_root}/PreferenceApplications/OSX"
+    local takao_preference_source="${preference_app_dir}/TakaoPreference.m"
+    local takao_preference_toolbar_source="${preference_app_dir}/TakaoPreference_Toolbar.m"
+    local takao_global_source="${source_root}/PreferenceApplications/OSX/TakaoGlobal.m"
     local minotaur_source="${source_root}/Frameworks/Minotaur/Source/Minotaur.cpp"
     local evalgelion_header="${source_root}/ModulePackages/OVAFEval/Evalgelion.h"
     local native_bopomofo_extconf="${source_root}/Frameworks/Formosa/Ruby/native_bopomofo/extconf.rb"
     local native_bopomofo_source="${source_root}/Frameworks/Formosa/Ruby/native_bopomofo/native_bopomofo.cpp"
     local project_file="${source_root}/Takao.xcodeproj/project.pbxproj"
+    local database_cooker_makefile="${source_root}/Distributions/Takao/DatabaseCooker/Makefile"
+    local one_key_source_dir="${source_root}/ModulePackages/YKAFOneKey"
+    local ovaf_search_source_dir="${source_root}/ModulePackages/OVAFSearch"
+    local static_pack_source_dir="${source_root}/ModulePackages/StaticPack"
+    local one_key_online_data="${source_root}/Distributions/Takao/OnlineData/OneKey.plist"
     local sqlite_dir="${source_root}/ExternalLibraries/sqlite"
     local cerod_sqlite_dir="${source_root}/ExternalLibraries/sqlite-cerod-see"
     local cerod_sqlite_source="${cerod_sqlite_dir}/sqlite3-cerod-see-aes128-ccm-combined.c"
@@ -514,6 +534,631 @@ end
 File.write(path, source)
 RUBY
         source_patch_applied "project-cangjiex-identifiers" "source-built loader uses CangjieX service and preference identifiers."
+    fi
+
+    local onekey_patch_applied=0
+
+    if [[ -f "${open_vanilla_loader_source}" ]] && grep -q 'YKAFOneKeyPackage' "${open_vanilla_loader_source}"; then
+        ruby - "${open_vanilla_loader_source}" <<'RUBY'
+path = ARGV.fetch(0)
+source = File.read(path)
+
+source.gsub!(%Q{#import "YKAFOneKeyPackage.h"\n}, "")
+source.gsub!(%r{virtual void\* loaderSpecificDataObjectForName\(const string& name\)\n\t\{.*?\n\t\}}m, "virtual void* loaderSpecificDataObjectForName(const string& name)\n\t{\n\t\t(void)name;\n\t\treturn 0;\n\t}")
+source.gsub!(%r{\n\t\t_oneKeyDataHTTPRequest = \[LFHTTPRequest new\];\n\t\t\[_oneKeyDataHTTPRequest setDelegate:self\];\n}m, "\n")
+source.gsub!(/\n\t\t_mergedOneKeyData = new PVPlistValue\(PVPlistValue::Dictionary\);\n/, "\n")
+source.gsub!(/\n\t\t_userOneKeyPlist = 0;\n/, "\n")
+source.gsub!(/\n\t\[_oneKeyDataHTTPRequest release\];\n/, "\n")
+source.gsub!(/\n\tdelete _mergedOneKeyData;\n/, "\n")
+source.gsub!(%r{\n\tif \(_userOneKeyPlist\) \{\n\t\tdelete _userOneKeyPlist;\n\t\}\n}m, "\n")
+source.gsub!(%r{\n\tif \(!_userOneKeyPlist\) \{\n\t\t_userOneKeyPlist = new PVPropertyList\(OVPathHelper::PathCat\(userDataPath, "UserOneKey.plist"\)\);\n\t\}\n}m, "\n")
+source.gsub!(%r{\n[ \t]*pkg = new YKAFOneKeyPackage;\n[ \t]*pkg->initialize\(&pathInfo, _loaderService\);\n[ \t]*_staticModuleLoadingSystem->addInitializedPackage\("YKAFOneKeyPackage", pkg\);\s*}, "\n")
+source.gsub!(%r{\n- \(void\)_handleOneKeyTimer:\(NSTimer \*\)timer\n\{.*?\n\}\n\n- \(void\)_handleCannedMessagesTimer}m, "\n- (void)_handleCannedMessagesTimer")
+source.gsub!(%r{\n\telse if \(request == _oneKeyDataHTTPRequest\) \{.*?\n\t\}\n\telse if \(request == _cannedMessagesDataHTTPRequest\)}m, "\n\telse if (request == _cannedMessagesDataHTTPRequest)")
+source.gsub!(%r{\n\telse if \(request == _oneKeyDataHTTPRequest\) \{\n\t\t\[NSTimer scheduledTimerWithTimeInterval:OVLOADER_HTTP_FAIL_RETRY_TIMEINTERVAL target:self selector:@selector\(_handleOneKeyTimer:\) userInfo:nil repeats:NO\];\n\t\}}, "")
+source.gsub!(%r{\n\t\[NSTimer scheduledTimerWithTimeInterval:OVLOADER_HTTP_FIRST_FETCH_DELAY target:self selector:@selector\(_handleOneKeyTimer:\) userInfo:nil repeats:NO\];\n}m, "\n")
+source.gsub!(%r{\n- \(void\)mergeOneKeyData\n\{.*?\n\}\n\n- \(PVPlistValue \*\)mergedOneKeyData\n\{.*?\n\}\n\n- \(void\)syncUserOneKeyData\n\{.*?\n\}\n\n}m, "\n")
+source.gsub!(/\n\t\[self mergeOneKeyData\];\n/, "\n")
+
+if source.include?("YKAFOneKeyPackage") ||
+   source.include?("_handleOneKeyTimer") ||
+   source.include?("onekey_services") ||
+   source.include?("mergeOneKeyData") ||
+   source.include?("OneKeyDataCopy") ||
+   source.include?("UserOneKey") ||
+   source.include?("_oneKeyDataHTTPRequest") ||
+   source.include?("_mergedOneKeyData") ||
+   source.include?("_userOneKeyPlist")
+  abort "OpenVanillaLoader still contains OneKey service code"
+end
+
+File.write(path, source)
+RUBY
+        onekey_patch_applied=1
+    fi
+
+    if [[ -f "${open_vanilla_loader_header}" ]] && grep -q 'OneKey' "${open_vanilla_loader_header}"; then
+        ruby -ni -e 'print unless /oneKeyDataHTTPRequest|_mergedOneKeyData|user onekey support|_userOneKeyPlist|mergeOneKeyData|mergedOneKeyData|syncUserOneKeyData/' "${open_vanilla_loader_header}"
+        onekey_patch_applied=1
+    fi
+
+    if [[ -f "${open_vanilla_config_header}" ]] && grep -q 'TAKAO_ONEKEY_URL' "${open_vanilla_config_header}"; then
+        ruby -0pi -e 'gsub(%r{\n#ifndef TAKAO_ONEKEY_URL\n.*?\n#endif\n}m, "\n")' "${open_vanilla_config_header}"
+        onekey_patch_applied=1
+    fi
+
+    if [[ -f "${open_vanilla_main_source}" ]] && grep -q 'OneKey.plist' "${open_vanilla_main_source}"; then
+        ruby -0pi -e 'gsub(%r{\n\t// migrates Search\.plist -> OneKey\.plist\n.*?\n\t\}\n\t\n}m, "\n")' "${open_vanilla_main_source}"
+        onekey_patch_applied=1
+    fi
+
+    if [[ -f "${open_vanilla_controller_source}" ]] && grep -q 'onekeyAction' "${open_vanilla_controller_source}"; then
+        ruby - "${open_vanilla_controller_source}" <<'RUBY'
+path = ARGV.fetch(0)
+source = File.read(path)
+
+source.gsub!('if (identifier == "OneKey" || identifier == "Evaluator")', 'if (identifier == "Evaluator")')
+source.gsub!(/\n\t\[\[OpenVanillaLoader sharedInstance\] syncUserOneKeyData\];\n/, "\n")
+source.gsub!(%r{\n\tNSMenuItem \*onekeyMenuItem = \[\[\[NSMenuItem alloc\] init\] autorelease\];\n\t\[onekeyMenuItem setTarget:self\];\n\t\[onekeyMenuItem setAction:@selector\(onekeyAction:\)\];\n\t\[onekeyMenuItem setTitle:LFLSTR\(@"One-Key"\)\];\n\t\[menu addItem:onekeyMenuItem\];\n}m, "\n")
+source.gsub!(%r{\n- \(void\)onekeyAction:\(id\)sender\n\{.*?\n\}\n- \(void\)symbolAction}m, "\n- (void)symbolAction")
+
+if source.include?("onekeyAction") ||
+   source.include?("syncUserOneKeyData") ||
+   source.include?("One-Key") ||
+   source.include?('"OneKey"')
+  abort "OpenVanillaController still contains OneKey UI code"
+end
+
+File.write(path, source)
+RUBY
+        onekey_patch_applied=1
+    fi
+
+    if [[ -f "${database_cooker_makefile}" ]] && grep -q 'ONEKEY_SERVICE_KEY' "${database_cooker_makefile}"; then
+        ruby -ni -e 'print unless /ONEKEY_|OneKey\.plist|\$\(INSERTER\) \$\(DB\) \$\(PREPOPULATE_TABLE_NAME\) \$\(ONEKEY_SERVICE_KEY\)/' "${database_cooker_makefile}"
+        onekey_patch_applied=1
+    fi
+
+    if [[ -f "${project_file}" ]] && grep -q 'YKAFOneKey' "${project_file}"; then
+        ruby -ni -e 'print unless /YKAFOneKey/' "${project_file}"
+        onekey_patch_applied=1
+    fi
+
+    if [[ -d "${one_key_source_dir}" ]]; then
+        rm -rf "${one_key_source_dir}"
+        onekey_patch_applied=1
+    fi
+
+    if [[ -d "${ovaf_search_source_dir}" ]]; then
+        rm -rf "${ovaf_search_source_dir}"
+        onekey_patch_applied=1
+    fi
+
+    if [[ -d "${static_pack_source_dir}" ]]; then
+        rm -rf "${static_pack_source_dir}"
+        onekey_patch_applied=1
+    fi
+
+    if [[ -f "${one_key_online_data}" ]]; then
+        rm -f "${one_key_online_data}"
+        onekey_patch_applied=1
+    fi
+
+    if ((onekey_patch_applied)); then
+        source_patch_applied "remove-onekey-service" "removed the legacy backtick-triggered Yahoo OneKey service menu, module registration, and preloaded data."
+    fi
+
+    local input_menu_patch_applied=0
+
+    if [[ -f "${open_vanilla_controller_source}" ]] \
+        && { grep -q 'helpMenuItem\|Bopomofo Correction\|Associated Phrase\|com.yahoo.inputmethod.KeyKey.Preferences\|openFile:preferencePath' "${open_vanilla_controller_source}" \
+            || ! grep -q 'identifier == "Evaluator" || identifier == "OVAFAssociatedPhrase"' "${open_vanilla_controller_source}"; }; then
+        PROJECT_URL="${PROJECT_URL}" PREFERENCES_BUNDLE_ID="${PREFERENCES_BUNDLE_ID}" ruby - "${open_vanilla_controller_source}" <<'RUBY'
+path = ARGV.fetch(0)
+source = File.read(path)
+original = source.dup
+preferences_bundle_id = ENV.fetch("PREFERENCES_BUNDLE_ID")
+
+unless source.include?('isAroundFilterActivated("OVAFAssociatedPhrase")')
+  unless source.sub!(%Q{    [OpenVanillaLoader sharedLoader]->syncLoaderConfig();\n\tOVKeyValueMap kvm = [OpenVanillaLoader sharedLoader]->configKeyValueMap();\n}, %Q{    [OpenVanillaLoader sharedLoader]->syncLoaderConfig();\n    if (![OpenVanillaLoader sharedLoader]->isAroundFilterActivated("OVAFAssociatedPhrase")) {\n        [OpenVanillaLoader sharedLoader]->toggleAroundFilter("OVAFAssociatedPhrase");\n    }\n\tOVKeyValueMap kvm = [OpenVanillaLoader sharedLoader]->configKeyValueMap();\n})
+    abort "OpenVanillaController activateServer syncLoaderConfig block was not found"
+  end
+end
+
+source.gsub!('if (identifier == "Evaluator") {', 'if (identifier == "Evaluator" || identifier == "OVAFAssociatedPhrase") {')
+source.gsub!(%r{\n- \(void\)helpAction:\(id\)sender\n\{.*?\n\}\n\n- \(void\)preferenceAction}m, "\n- (void)preferenceAction")
+source.gsub!(%r{\n\tNSMenuItem \*helpMenuItem = \[\[\[NSMenuItem alloc\] init\] autorelease\];\n\t\[helpMenuItem setTarget:self\];\n\t\[helpMenuItem setAction:@selector\(helpAction:\)\];\n\t\[helpMenuItem setTitle:LFLSTR\(@"Help"\)\];\n\t\[menu addItem:helpMenuItem\];\n[ \t]*}m, "\n")
+source.gsub!(%r{\n\tif \(!\[\[NSWorkspace sharedWorkspace\] openFile:preferencePath\]\) \{\n\t\t\[\[NSWorkspace sharedWorkspace\] launchAppWithBundleIdentifier:@"com\.yahoo\.inputmethod\.KeyKey\.Preferences" options:NSWorkspaceLaunchDefault additionalEventParamDescriptor:nil launchIdentifier:nil\];\n\t\}\n}m, %Q{\n\tNSURL *preferenceURL = [NSURL fileURLWithPath:preferencePath];\n\tif (![[NSWorkspace sharedWorkspace] openURL:preferenceURL]) {\n\t\t[[NSWorkspace sharedWorkspace] launchAppWithBundleIdentifier:@"#{preferences_bundle_id}" options:NSWorkspaceLaunchDefault additionalEventParamDescriptor:nil launchIdentifier:nil];\n\t}\n})
+
+if source.include?("helpAction:") ||
+   source.include?("helpMenuItem") ||
+   source.include?('LFLSTR(@"Help")') ||
+   source.include?("http://tw.media.yahoo.com/keykey/help/") ||
+   source.include?("com.yahoo.inputmethod.KeyKey.Preferences") ||
+   source.include?("openFile:preferencePath")
+  abort "OpenVanillaController still contains legacy help menu code"
+end
+
+unless source.include?(preferences_bundle_id) && source.include?("[NSWorkspace sharedWorkspace] openURL:preferenceURL")
+  abort "OpenVanillaController does not use the modern Preferences launch path"
+end
+
+unless source.include?('identifier == "Evaluator" || identifier == "OVAFAssociatedPhrase"')
+  abort "OpenVanillaController does not hide and force-enable the associated phrase filter"
+end
+
+if source == original
+  abort "OpenVanillaController menu modernization made no changes"
+end
+
+File.write(path, source)
+RUBY
+        input_menu_patch_applied=1
+    fi
+
+    if [[ -f "${about_controller_source}" ]] && grep -q 'tw.help.cc.yahoo.com/feedback.html' "${about_controller_source}"; then
+        PROJECT_URL="${PROJECT_URL}" ruby - "${about_controller_source}" <<'RUBY'
+path = ARGV.fetch(0)
+source = File.read(path)
+project_url = ENV.fetch("PROJECT_URL")
+
+source.gsub!(%q{@"http://tw.help.cc.yahoo.com/feedback.html?id=3430"}, %Q{@"#{project_url}"})
+
+if source.include?("tw.help.cc.yahoo.com") || !source.include?(project_url)
+  abort "CVAboutController still points to the legacy Yahoo feedback URL"
+end
+
+File.write(path, source)
+RUBY
+        input_menu_patch_applied=1
+    fi
+
+    if [[ -f "${bopomofo_correction_source}" ]] && grep -q 'Bopomofo Correction' "${bopomofo_correction_source}"; then
+        ruby -pi -e 'gsub(%q{return string("Bopomofo Correction");}, %q{return tcname;})' "${bopomofo_correction_source}"
+        input_menu_patch_applied=1
+    fi
+
+    if [[ -f "${full_width_source}" ]] && grep -q 'Use Full-Width Characters' "${full_width_source}"; then
+        ruby -pi -e 'gsub(%q{return string("Use Full-Width Characters");}, %q{return tcname;})' "${full_width_source}"
+        input_menu_patch_applied=1
+    fi
+
+    if [[ -f "${han_convert_source}" ]] && grep -q 'Traditional Chinese to Simpified Chinese\|Simplified Chinese to Traditional Chinese' "${han_convert_source}"; then
+        ruby -pi -e '
+            gsub(%q{return "Traditional Chinese to Simpified Chinese";}, %q{return "繁體轉簡體";})
+            gsub(%q{return "Simplified Chinese to Traditional Chinese";}, %q{return "簡體轉繁體";})
+        ' "${han_convert_source}"
+        input_menu_patch_applied=1
+    fi
+
+    if [[ -f "${associated_phrase_source}" ]] && grep -q 'Associated Phrase' "${associated_phrase_source}"; then
+        ruby -pi -e 'gsub(%q{return string("Associated Phrase");}, %q{return tcname;})' "${associated_phrase_source}"
+        input_menu_patch_applied=1
+    fi
+
+    if ((input_menu_patch_applied)); then
+        source_patch_applied "modernize-input-menu" "forced associated phrases on, removed the legacy help menu, localized menu fallbacks, and pointed About to GitHub."
+    fi
+
+    if [[ -f "${takao_global_source}" ]] && grep -q '\[fromColor hueComponent\]' "${takao_global_source}"; then
+        ruby - "${takao_global_source}" <<'RUBY'
+path = ARGV.fetch(0)
+source = File.read(path)
+
+old_code_pattern = %r{#if MAC_OS_X_VERSION_MAX_ALLOWED > MAC_OS_X_VERSION_10_4\s*
+\s*if \(\[aColor colorSpaceName\] == NSDeviceWhiteColorSpace \|\| \[aColor colorSpaceName\] ==NSCalibratedWhiteColorSpace\).*?toColor = \[NSColor colorWithCalibratedHue:hue saturation:saturation brightness:brightness alpha:1\.0\];\s*#endif\s*}m
+
+new_code = <<'OBJC'
+#if MAC_OS_X_VERSION_MAX_ALLOWED > MAC_OS_X_VERSION_10_4
+	fromColor = [aColor colorUsingColorSpaceName:NSCalibratedRGBColorSpace];
+	if (!fromColor) {
+		fromColor = [aColor colorUsingColorSpace:[NSColorSpace genericRGBColorSpace]];
+	}
+	if (!fromColor) {
+		fromColor = [NSColor colorWithCalibratedRed:1.0 green:1.0 blue:1.0 alpha:[aColor alphaComponent]];
+	}
+
+	CGFloat hue = 0.0;
+	CGFloat saturation = 0.0;
+	CGFloat brightness = 1.0;
+	CGFloat alpha = 1.0;
+	[fromColor getHue:&hue saturation:&saturation brightness:&brightness alpha:&alpha];
+	toColor = [NSColor colorWithCalibratedHue:hue saturation:saturation brightness:(brightness / 3.0) alpha:alpha];
+#endif
+OBJC
+
+unless source.sub!(old_code_pattern, new_code)
+  abort "TakaoGlobal color swatch block was not found"
+end
+
+if source.include?("[fromColor hueComponent]") ||
+   source.include?("[fromColor saturationComponent]") ||
+   source.include?("[fromColor brightnessComponent]")
+  abort "TakaoGlobal still reads HSB components without RGB conversion"
+end
+
+File.write(path, source)
+RUBY
+        source_patch_applied "preferences-color-rgb" "converted preference color swatches to RGB before deriving hue and brightness."
+    fi
+
+    local preferences_ui_patch_applied=0
+
+    if [[ -f "${takao_global_source}" ]] \
+        && { grep -q 'Shortcut Key:\|ToggleInputMethodWithControlBackslash\|ModulesSuppressedFromUI\|Purple\|Default" forKey:@"HighlightColor' "${takao_global_source}" \
+            || ! grep -q '_modernizeGeneralPane' "${takao_global_source}"; }; then
+        ruby - "${takao_global_source}" <<'RUBY'
+path = ARGV.fetch(0)
+source = File.read(path)
+original = source.dup
+
+source.gsub!('[_takaoDictionary setValue:@"Default" forKey:@"HighlightColor"];', '[_takaoDictionary setValue:@"0.000000 0.478431 0.749020" forKey:@"HighlightColor"];')
+unless source.sub!(/\t\[_takaoDictionary setValue:@"true" forKey:@"ToggleInputMethodWithControlBackslash"\];\n\n\tLFRetainAssign/, "\t[_takaoDictionary setValue:[NSArray array] forKey:@\"ActivatedOutputFilters\"];\n\n\tLFRetainAssign")
+  abort "TakaoGlobal output filter default block was not found"
+end
+
+old_toggle_ui = %r{#if \(MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_5\)\s*
+\s*if \(\[\[_takaoDictionary valueForKey:@"ToggleInputMethodWithControlBackslash"\] isEqualToString:@"true"\]\)
+\s*\[_useCtrlBackSlashToggleInputMethod setIntValue:1\];
+\s*else
+\s*\[_useCtrlBackSlashToggleInputMethod setIntValue:0\];\s*
+#else
+\s*\[_useCtrlBackSlashToggleInputMethod setHidden:YES\];
+//\s*\[_useCtrlBackSlashToggleInputMethod setEnabled:NO\];
+//\s*NSString \*title = \[_useCtrlBackSlashToggleInputMethod title\];
+//\s*\[_useCtrlBackSlashToggleInputMethod setTitle:\[NSString stringWithFormat:@"%@ \(10\.5 only\)", title\]\];
+#endif[ \t]*\n}m
+
+new_toggle_ui = <<'OBJC'
+	NSArray *activatedOutputFilters = [_takaoDictionary valueForKey:@"ActivatedOutputFilters"];
+	if ([activatedOutputFilters isKindOfClass:[NSArray class]] && [activatedOutputFilters containsObject:@"OVOFHanConvert-TC2SC"])
+		[_useCtrlBackSlashToggleInputMethod setIntValue:1];
+	else
+		[_useCtrlBackSlashToggleInputMethod setIntValue:0];
+OBJC
+
+unless source.sub!(old_toggle_ui, new_toggle_ui)
+  abort "TakaoGlobal output filter UI block was not found"
+end
+
+old_toggle_write = "\n\tif ([_useCtrlBackSlashToggleInputMethod intValue]) \n\t\t[_takaoDictionary setValue:@\"true\" forKey:@\"ToggleInputMethodWithControlBackslash\"];\n\telse\n\t\t[_takaoDictionary setValue:@\"false\" forKey:@\"ToggleInputMethodWithControlBackslash\"];\t\n"
+
+new_toggle_write = <<'OBJC'
+
+	NSArray *currentOutputFilters = [_takaoDictionary valueForKey:@"ActivatedOutputFilters"];
+	if (![currentOutputFilters isKindOfClass:[NSArray class]])
+		currentOutputFilters = [NSArray array];
+
+	NSMutableArray *activatedOutputFilters = [NSMutableArray arrayWithArray:currentOutputFilters];
+	[activatedOutputFilters removeObject:@"OVOFHanConvert-TC2SC"];
+	if ([_useCtrlBackSlashToggleInputMethod intValue])
+		[activatedOutputFilters addObject:@"OVOFHanConvert-TC2SC"];
+	[_takaoDictionary setValue:activatedOutputFilters forKey:@"ActivatedOutputFilters"];
+OBJC
+
+unless source.sub!(old_toggle_write, new_toggle_write)
+  abort "TakaoGlobal output filter write block was not found"
+end
+
+modern_helpers = <<'OBJC'
+- (void)_setSubviewWithText:(NSString *)oldText toText:(NSString *)newText inView:(NSView *)view
+{
+	NSEnumerator *enumerator = [[view subviews] objectEnumerator];
+	NSView *subview = nil;
+	while (subview = [enumerator nextObject]) {
+		if ([subview isKindOfClass:[NSButton class]] && [[(NSButton *)subview title] isEqualToString:oldText]) {
+			[(NSButton *)subview setTitle:newText];
+		}
+		else if ([subview isKindOfClass:[NSTextField class]] && [[(NSTextField *)subview stringValue] isEqualToString:oldText]) {
+			[(NSTextField *)subview setStringValue:newText];
+		}
+		[self _setSubviewWithText:oldText toText:newText inView:subview];
+	}
+}
+
+- (void)_hideSubviewWithText:(NSString *)text inView:(NSView *)view
+{
+	NSEnumerator *enumerator = [[view subviews] objectEnumerator];
+	NSView *subview = nil;
+	while (subview = [enumerator nextObject]) {
+		if ([subview isKindOfClass:[NSButton class]] && [[(NSButton *)subview title] isEqualToString:text]) {
+			[subview setHidden:YES];
+		}
+		else if ([subview isKindOfClass:[NSTextField class]] && [[(NSTextField *)subview stringValue] isEqualToString:text]) {
+			[subview setHidden:YES];
+		}
+		[self _hideSubviewWithText:text inView:subview];
+	}
+}
+
+- (void)_hideOneKeyPopUpButtonsInView:(NSView *)view
+{
+	NSEnumerator *enumerator = [[view subviews] objectEnumerator];
+	NSView *subview = nil;
+	while (subview = [enumerator nextObject]) {
+		if ([subview isKindOfClass:[NSPopUpButton class]]) {
+			NSEnumerator *itemEnumerator = [[(NSPopUpButton *)subview itemArray] objectEnumerator];
+			NSMenuItem *item = nil;
+			while (item = [itemEnumerator nextObject]) {
+				NSString *title = [item title];
+				if ([title hasPrefix:@"Use`"] || [title hasPrefix:@"Use ~"]) {
+					[subview setHidden:YES];
+					break;
+				}
+			}
+		}
+		[self _hideOneKeyPopUpButtonsInView:subview];
+	}
+}
+
+- (void)_modernizeGeneralPane
+{
+	NSView *view = [_soundCheckBox superview];
+	if (!view)
+		return;
+
+	[view setFrame:NSMakeRect(0, 0, 480, 220)];
+
+	[self _setSubviewWithText:@"Candidates:" toText:@"候選窗：" inView:view];
+	[self _setSubviewWithText:@"候選字窗：" toText:@"候選窗：" inView:view];
+	[self _setSubviewWithText:@"Highlight Color:" toText:@"標示顏色：" inView:view];
+	[self _setSubviewWithText:@"標示顏色：" toText:@"標示顏色：" inView:view];
+	[self _setSubviewWithText:@"Beep on Error:" toText:@"提示音：" inView:view];
+	[self _setSubviewWithText:@"錯誤提示音：" toText:@"提示音：" inView:view];
+	[self _setSubviewWithText:@"Enable alert sound" toText:@"輸入錯誤時播放提示音" inView:view];
+	[self _setSubviewWithText:@"啟用警示音效" toText:@"輸入錯誤時播放提示音" inView:view];
+	[self _setSubviewWithText:@"... with this audio clip:" toText:@"提示音效：" inView:view];
+	[self _setSubviewWithText:@"… with this audio clip:" toText:@"提示音效：" inView:view];
+	[self _setSubviewWithText:@"... 使用這個音效：" toText:@"提示音效：" inView:view];
+	[self _setSubviewWithText:@"Vertical" toText:@"直式" inView:view];
+	[self _setSubviewWithText:@"Horizontal" toText:@"橫式" inView:view];
+
+	NSArray *hiddenTexts = [NSArray arrayWithObjects:
+		@"Input Methods:",
+		@"輸入法：",
+		@"You can hide some Input Methods from the Input Menu.",
+		@"您可以從輸入法選單隱藏部分輸入法。",
+		@"Shortcut Key:",
+		@"快速鍵：",
+		@" to activate One-Key feature.",
+		@"啟用一點通功能。",
+		nil];
+	NSEnumerator *hiddenEnumerator = [hiddenTexts objectEnumerator];
+	NSString *hiddenText = nil;
+	while (hiddenText = [hiddenEnumerator nextObject]) {
+		[self _hideSubviewWithText:hiddenText inView:view];
+	}
+
+	[self _hideOneKeyPopUpButtonsInView:view];
+	[[_moduleListTableView enclosingScrollView] setHidden:YES];
+	[_keyboardLayoutPopUpButton setHidden:YES];
+	[_useCtrlBackSlashToggleInputMethod setHidden:NO];
+	[_useCtrlBackSlashToggleInputMethod setTitle:@"輸入繁體時輸出簡體"];
+
+	[_candidateWindowStyleMatrix setFrame:NSMakeRect(132, 173, 236, 18)];
+	[_highlightColorPopUpButton setFrame:NSMakeRect(129, 141, 242, 26)];
+	[_useCtrlBackSlashToggleInputMethod setFrame:NSMakeRect(130, 118, 260, 18)];
+	[_soundCheckBox setFrame:NSMakeRect(130, 73, 260, 18)];
+	[_soundListPopUpButton setFrame:NSMakeRect(129, 19, 242, 26)];
+	[_stopPlayiongButton setFrame:NSMakeRect(410, 19, 33, 25)];
+}
+
+OBJC
+
+unless source.include?('_modernizeGeneralPane')
+  unless source.sub!(/\n- \(void\)setUI\n\{/, "\n#{modern_helpers}- (void)setUI\n{")
+    abort "TakaoGlobal setUI insertion point was not found"
+  end
+end
+
+unless source.include?('[self _modernizeGeneralPane];')
+  unless source.sub!(/\t\[_highlightColorPopUpButton setColorSelection:\[_takaoDictionary valueForKey:@"HighlightColor"\]\];\n\}/, "\t[_highlightColorPopUpButton setColorSelection:[_takaoDictionary valueForKey:@\"HighlightColor\"]];\n\t[self _modernizeGeneralPane];\n}")
+    abort "TakaoGlobal setUI modernization call point was not found"
+  end
+end
+
+source.gsub!(%q{NSMenuItem *purpleItem = [[[NSMenuItem alloc] initWithTitle:LFLSTR(@"Purple") action:nil keyEquivalent:@""] autorelease];
+	[purpleItem setImage:[self imageForColor:[NSColor purpleColor]]];}, %q{NSMenuItem *purpleItem = [[[NSMenuItem alloc] initWithTitle:LFLSTR(@"Cangjie Blue") action:nil keyEquivalent:@""] autorelease];
+	NSColor *cangjieBlueColor = [NSColor colorWithCalibratedRed:0.00 green:0.478431 blue:0.749020 alpha:1.00];
+	[purpleItem setImage:[self imageForColor:cangjieBlueColor]];})
+source.gsub!('[_colors addObject:@"Default"];', '[_colors addObject:@"0.000000 0.478431 0.749020"];')
+source.gsub!('if ([_initString isEqualToString:@"Default"] || [_initString isEqualToString:@"Purple"]) {', 'if ([_initString isEqualToString:@"Default"] || [_initString isEqualToString:@"Purple"] || [_initString isEqualToString:@"Cangjie Blue"] || [_initString isEqualToString:@"0.000000 0.478431 0.749020"]) {')
+
+if source.include?('ToggleInputMethodWithControlBackslash') ||
+   source.include?('Use Ctrl + Backslash to toggle Input Methods.') ||
+   source.include?('NSDeviceWhiteColorSpace || [aColor colorSpaceName] ==NSCalibratedWhiteColorSpace')
+  abort "TakaoGlobal still contains legacy preference UI behavior"
+end
+
+if source == original
+  abort "TakaoGlobal preference modernization made no changes"
+end
+
+File.write(path, source)
+RUBY
+        preferences_ui_patch_applied=1
+    fi
+
+    if [[ -f "${takao_preference_source}" ]] \
+        && grep -q 'GeneralToolbarItemIdentifier\|_keyboardLayoutContentView addSubview\|setActiveView:_generalView' "${takao_preference_source}"; then
+        ruby - "${takao_preference_source}" <<'RUBY'
+path = ARGV.fetch(0)
+source = File.read(path)
+original = source.dup
+
+source.gsub!('[toolbar setSelectedItemIdentifier:GeneralToolbarItemIdentifier];', '[toolbar setSelectedItemIdentifier:CangjieToolbarItemIdentifier];')
+source.gsub!(%r{#if \(MAC_OS_X_VERSION_MAX_ALLOWED < MAC_OS_X_VERSION_10_5\).*?\[_keyboardLayoutContentView addSubview:_keyboardLayoutView\];\s*#endif}m, "\t[_keyboardLayoutContentView removeFromSuperview];\n\t[_generalView setFrame:NSMakeRect(0, 0, 480, 220)];")
+source.gsub!('[self setActiveView:_generalView animate:NO];', '[self setActiveView:_cangjieView animate:NO];')
+source.gsub!('[self setAppIcon:[NSImage imageNamed:@"general"]];', '[self setAppIcon:[NSImage imageNamed:@"cangjie"]];')
+source.gsub!('[window setTitle:LFLSTR(GeneralToolbarItemIdentifier)];', '[window setTitle:LFLSTR(CangjieToolbarItemIdentifier)];')
+
+if source.include?('[_keyboardLayoutContentView addSubview:_keyboardLayoutView]') ||
+   source.include?('[toolbar setSelectedItemIdentifier:GeneralToolbarItemIdentifier];') ||
+   source.include?('[self setActiveView:_generalView animate:NO];')
+  abort "TakaoPreference still opens the legacy General pane"
+end
+
+if source == original
+  abort "TakaoPreference modernization made no changes"
+end
+
+File.write(path, source)
+RUBY
+        preferences_ui_patch_applied=1
+    fi
+
+    if [[ -f "${takao_preference_toolbar_source}" ]] \
+        && grep -q 'PhoneticToolbarItemIdentifier\|UpdateToolbarItemIdentifier\|PluginToolbarItemIdentifier\|GenericToolbarItemIdentifier' "${takao_preference_toolbar_source}"; then
+        ruby - "${takao_preference_toolbar_source}" <<'RUBY'
+path = ARGV.fetch(0)
+source = File.read(path)
+original = source.dup
+
+minimal_toolbar = <<'OBJC'
+{
+	return [NSArray arrayWithObjects:
+		CangjieToolbarItemIdentifier,
+		GeneralToolbarItemIdentifier,
+		PhraseToolbarItemIdentifier,
+		nil];
+}
+OBJC
+
+source.sub!(%r{\{\n\tNSMutableArray \*array = \[NSMutableArray array\];.*?\n\treturn array;\n\n\}}m, minimal_toolbar)
+source.gsub!(%r{\{\n\treturn \[NSArray arrayWithObjects:.*?\n\t\tnil\];\n\}}m, minimal_toolbar)
+
+if source.include?('[array addObject:') ||
+   source.include?('PhoneticToolbarItemIdentifier,') ||
+   source.include?('SimplexToolbarItemIdentifier,') ||
+   source.include?('UpdateToolbarItemIdentifier,') ||
+   source.include?('GenericToolbarItemIdentifier,') ||
+   source.include?('PluginToolbarItemIdentifier,')
+  abort "TakaoPreference toolbar still exposes redundant panes"
+end
+
+if source == original
+  abort "TakaoPreference toolbar modernization made no changes"
+end
+
+File.write(path, source)
+RUBY
+        preferences_ui_patch_applied=1
+    fi
+
+    if [[ -d "${preference_app_dir}/English.lproj" ]] && [[ -d "${preference_app_dir}/zh_TW.lproj" ]]; then
+        ruby - "${preference_app_dir}" <<'RUBY'
+require "cgi"
+require "fileutils"
+
+preference_dir = ARGV.fetch(0)
+english_dir = File.join(preference_dir, "English.lproj")
+traditional_dir = File.join(preference_dir, "zh_TW.lproj")
+simplified_dir = File.join(preference_dir, "zh_CN.lproj")
+
+def replace_xib_strings(path, replacements)
+  source = File.read(path)
+  original = source.dup
+
+  replacements.each do |old_text, new_text|
+    old_xml = CGI.escapeHTML(old_text)
+    new_xml = CGI.escapeHTML(new_text)
+    source.gsub!("<string key=\"NSContents\">#{old_xml}</string>", "<string key=\"NSContents\">#{new_xml}</string>")
+    source.gsub!("<string key=\"NSTitle\">#{old_xml}</string>", "<string key=\"NSTitle\">#{new_xml}</string>")
+  end
+
+  File.write(path, source) if source != original
+  source != original
+end
+
+replacements = {
+  "Candidates:" => "候選窗：",
+  "Highlight Color:" => "標示顏色：",
+  "Beep on Error:" => "提示音：",
+  "Enable alert sound" => "輸入錯誤時播放提示音",
+  "... with this audio clip:" => "提示音效：",
+  "… with this audio clip:" => "提示音效：",
+  "Use Ctrl + Backslash to toggle Input Methods." => "輸入繁體時輸出簡體",
+  "Shortcut Key:" => "",
+  " to activate One-Key feature." => "",
+  "Input Methods:" => "",
+  "You can hide some Input Methods from the Input Menu." => "",
+  "Keyboard Layout:" => "鍵盤配置：",
+  "Smart Phonetic Input Method" => "注音設定",
+  "Taditional Phonetic Input Method" => "傳統注音設定",
+  "Cangjie Input Method" => "倉頡設定",
+  "Simplex Input Method" => "簡易設定",
+  "Character Set:" => "字元集：",
+  "Allows non-big5 characters" => "允許非 Big5 字元",
+  "Allow non-big5 characters" => "允許非 Big5 字元",
+  "Put recently chosen candidates in front." => "優先顯示最近選用的候選字",
+  "Clear radical reading when composition fails." => "組字錯誤時清除字根",
+  "Compose at each keystroke." => "輸入字根時即時組字",
+  "\"Clear radical reading when composition fails\" and Compose at each keystroke\" are mutally exclusive." => "「組字錯誤時清除字根」與「輸入字根時即時組字」不能同時啟用。",
+  "Edit Phrases:" => "詞庫：",
+  "Launch User Phrase Editor" => "開啟詞庫編輯器",
+  "Check for Updates:" => "更新："
+}
+
+Dir.glob(File.join(english_dir, "*.xib")).each do |xib_path|
+  replace_xib_strings(xib_path, replacements)
+end
+
+strings_path = File.join(traditional_dir, "Localizable.strings")
+if File.exist?(strings_path)
+  strings = File.read(strings_path)
+  {
+    "General" => "通用",
+    "Phrase" => "詞庫",
+    "Cangjie Blue" => "倉頡藍",
+    "If you are nor running Yahoo! KeyKey, you are not able to check for update." => "如果倉頡星不在執行中，便無法執行更新檢查功能。",
+    "If you are not runnung Yahoo! KeyKey, you are not able to export your database." => "如果倉頡星不在使用中，您便無法匯出自訂詞資料庫。",
+    "If you are not runnung Yahoo! KeyKey, you are not able to import your database." => "如果倉頡星不在使用中，您便無法匯入自訂詞資料庫。",
+    "Yahoo! KeyKey user phrases database was not found on your iDisk." => "在您的 iDisk 上找不到倉頡星的自訂詞資料庫備份。"
+  }.each do |key, value|
+    escaped_key = Regexp.escape(key)
+    if strings =~ /^"#{escaped_key}"\s*=/
+      strings.gsub!(/^"#{escaped_key}"\s*=\s*".*?";/, %Q{"#{key}" = "#{value}";})
+    else
+      strings << %Q{\n"#{key}" = "#{value}";\n}
+    end
+  end
+  File.write(strings_path, strings)
+end
+
+info_plist_path = File.join(traditional_dir, "InfoPlist.strings")
+if File.exist?(info_plist_path)
+  info = File.read(info_plist_path)
+  {
+    "CFBundleName" => "倉頡星偏好設定",
+    "CFBundleDisplayName" => "倉頡星偏好設定"
+  }.each do |key, value|
+    escaped_key = Regexp.escape(key)
+    if info =~ /^#{escaped_key}\s*=/
+      info.gsub!(/^#{escaped_key}\s*=\s*".*?";/, %Q{#{key} = "#{value}";})
+    else
+      info << %Q{\n#{key} = "#{value}";\n}
+    end
+  end
+  File.write(info_plist_path, info)
+end
+
+%w[Localizable.strings InfoPlist.strings MainMenu.xib TakaoGenericSettings.xib TakaoReverseLookup.xib TakaoWordCount.xib].each do |filename|
+  source_path = File.join(filename.end_with?(".xib") ? english_dir : traditional_dir, filename)
+  next unless File.exist?(source_path)
+
+  [english_dir, simplified_dir, traditional_dir].each do |target_dir|
+    FileUtils.mkdir_p(target_dir)
+    target_path = File.join(target_dir, filename)
+    next if File.expand_path(source_path) == File.expand_path(target_path)
+    FileUtils.cp(source_path, target_path)
+  end
+end
+RUBY
+        preferences_ui_patch_applied=1
+    fi
+
+    if ((preferences_ui_patch_applied)); then
+        source_patch_applied "modernize-preferences-ui" "trimmed legacy preference panes, defaulted to the Cangjie pane, exposed Traditional-to-Simplified output, and forced Traditional Chinese resources."
     fi
 
     if [[ -d "${cerod_sqlite_dir}" ]] \

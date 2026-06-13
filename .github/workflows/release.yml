@@ -84,7 +84,15 @@ jobs:
           cat >"${release_notes}" <<EOF
           CangjieX ${VERSION}
 
-          This release contains the unsigned universal macOS installer package built from the open source Yahoo KeyKey source tree.
+          CangjieX / 倉頡星 is an open source Cangjie input method package for modern macOS, built from the open source Yahoo KeyKey source tree.
+
+          Highlights:
+
+              - Universal macOS app: arm64 + x86_64
+              - Cangjie-first source build
+              - Traditional Chinese associated phrase data
+              - Refreshed CangjieX / 倉頡星 app icons and visible branding
+              - Source patch manifest and build provenance are attached
 
           Upstream source commit:
 
@@ -106,7 +114,9 @@ jobs:
 
               sudo installer -pkg CangjieX.pkg -target /
 
-          After installation, log out and back in, then enable CangjieX in System Settings > Keyboard > Input Sources.
+          After installation, log out and back in. Then open System Settings > Keyboard > Text Input > Edit, add CangjieX / 倉頡星 from Chinese input sources, and enable it.
+
+          Note: this CI-built package is unsigned unless the workflow is configured with Developer ID signing and notarization secrets.
           EOF
 
           if gh release view "${TAG_NAME}" >/dev/null 2>&1; then

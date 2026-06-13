@@ -2,11 +2,15 @@
 set -euo pipefail
 export COPYFILE_DISABLE=1
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PRODUCT_NAME="CangjieX"
 PRODUCT_DISPLAY_NAME="${PRODUCT_DISPLAY_NAME:-CangjieX}"
 PRODUCT_CHINESE_NAME="${PRODUCT_CHINESE_NAME:-倉頡星}"
 PRODUCT_SIMPLIFIED_NAME="${PRODUCT_SIMPLIFIED_NAME:-仓颉星}"
 VERSION="${VERSION:-1.0.0}"
+BRAND_ASSETS_DIR="${BRAND_ASSETS_DIR:-${SCRIPT_DIR}/assets/brand}"
+PROJECT_URL="${PROJECT_URL:-https://github.com/geekstek/CangjieX}"
+PROJECT_URL_LABEL="${PROJECT_URL_LABEL:-github.com/geekstek/CangjieX}"
 
 if [[ ! "${VERSION}" =~ ^[0-9]+[.][0-9]+[.][0-9]+$ ]]; then
     echo "VERSION must use numeric x.y.z format, got: ${VERSION}" >&2
@@ -15,6 +19,8 @@ fi
 
 APP_BUNDLE_ID="${APP_BUNDLE_ID:-io.github.geekstek.inputmethod.CangjieX}"
 COMPONENT_ID="${COMPONENT_ID:-io.github.geekstek.cangjiex.inputmethod}"
+PREFERENCES_BUNDLE_ID="${PREFERENCES_BUNDLE_ID:-io.github.geekstek.cangjiex.preferences}"
+PHRASE_EDITOR_BUNDLE_ID="${PHRASE_EDITOR_BUNDLE_ID:-io.github.geekstek.cangjiex.phraseeditor}"
 INPUT_METHOD_CONNECTION_NAME="${INPUT_METHOD_CONNECTION_NAME:-}"
 
 APP_SIGN_IDENTITY="${APP_SIGN_IDENTITY:-}"
@@ -99,9 +105,9 @@ set_localized_bundle_name() {
     fi
 }
 
-set_localized_bundle_name "${STAGED_APP}/Contents/Resources/English.lproj/InfoPlist.strings" "${PRODUCT_DISPLAY_NAME}"
+set_localized_bundle_name "${STAGED_APP}/Contents/Resources/English.lproj/InfoPlist.strings" "${PRODUCT_CHINESE_NAME}"
 set_localized_bundle_name "${STAGED_APP}/Contents/Resources/zh_TW.lproj/InfoPlist.strings" "${PRODUCT_CHINESE_NAME}"
-set_localized_bundle_name "${STAGED_APP}/Contents/Resources/zh_CN.lproj/InfoPlist.strings" "${PRODUCT_SIMPLIFIED_NAME}"
+set_localized_bundle_name "${STAGED_APP}/Contents/Resources/zh_CN.lproj/InfoPlist.strings" "${PRODUCT_CHINESE_NAME}"
 
 plist_key_path() {
     local key="$1"
@@ -148,13 +154,17 @@ set_info_plist_string() {
 
 brand_helper_app() {
     local app_dir="$1"
-    local english_name="$2"
-    local traditional_name="$3"
-    local simplified_name="$4"
+    local bundle_id="$2"
+    local english_name="$3"
+    local traditional_name="$4"
+    local simplified_name="$5"
     local copyright_text="CangjieX contributors. Based on Yahoo! KeyKey and OpenVanilla."
 
+    set_info_plist_string "${app_dir}/Contents/Info.plist" "CFBundleIdentifier" "${bundle_id}"
     set_info_plist_string "${app_dir}/Contents/Info.plist" "CFBundleName" "${english_name}"
     set_info_plist_string "${app_dir}/Contents/Info.plist" "CFBundleDisplayName" "${english_name}"
+    set_info_plist_string "${app_dir}/Contents/Info.plist" "CFBundleVersion" "${VERSION}"
+    set_info_plist_string "${app_dir}/Contents/Info.plist" "CFBundleShortVersionString" "${VERSION}"
     set_info_plist_string "${app_dir}/Contents/Info.plist" "NSHumanReadableCopyright" "${copyright_text}"
 
     set_strings_value "${app_dir}/Contents/Resources/English.lproj/InfoPlist.strings" "CFBundleName" "${english_name}"
@@ -172,8 +182,20 @@ brand_helper_app() {
 
 brand_visible_strings() {
     set_strings_value "${STAGED_APP}/Contents/Resources/English.lproj/Localizable.strings" \
+        "Cangjie" \
+        "倉頡"
+    set_strings_value "${STAGED_APP}/Contents/Resources/English.lproj/Localizable.strings" \
+        "Simplex" \
+        "簡易"
+    set_strings_value "${STAGED_APP}/Contents/Resources/English.lproj/Localizable.strings" \
+        "Symbols" \
+        "符號表"
+    set_strings_value "${STAGED_APP}/Contents/Resources/English.lproj/Localizable.strings" \
+        "Preferences..." \
+        "偏好設定..."
+    set_strings_value "${STAGED_APP}/Contents/Resources/English.lproj/Localizable.strings" \
         "About Yahoo! KeyKey" \
-        "About ${PRODUCT_DISPLAY_NAME}"
+        "關於${PRODUCT_CHINESE_NAME}"
     set_strings_value "${STAGED_APP}/Contents/Resources/English.lproj/Localizable.strings" \
         "<p class=\"credit\">2008-2010 Yahoo! Taiwan All Rights Reserved.</p>" \
         "<p>CangjieX contributors. Based on Yahoo! KeyKey and OpenVanilla.</p>"
@@ -192,14 +214,16 @@ brand_visible_strings() {
 
     brand_helper_app \
         "${STAGED_APP}/Contents/SharedSupport/Preferences.app" \
-        "${PRODUCT_DISPLAY_NAME} Preferences" \
+        "${PREFERENCES_BUNDLE_ID}" \
         "${PRODUCT_CHINESE_NAME}偏好設定" \
-        "${PRODUCT_SIMPLIFIED_NAME}偏好设置"
+        "${PRODUCT_CHINESE_NAME}偏好設定" \
+        "${PRODUCT_CHINESE_NAME}偏好設定"
     brand_helper_app \
         "${STAGED_APP}/Contents/SharedSupport/PhraseEditor.app" \
-        "${PRODUCT_DISPLAY_NAME} Phrase Editor" \
+        "${PHRASE_EDITOR_BUNDLE_ID}" \
         "${PRODUCT_CHINESE_NAME}詞彙編輯程式" \
-        "${PRODUCT_SIMPLIFIED_NAME}词汇编辑工具"
+        "${PRODUCT_CHINESE_NAME}詞彙編輯程式" \
+        "${PRODUCT_CHINESE_NAME}詞彙編輯程式"
 
     set_strings_value "${STAGED_APP}/Contents/SharedSupport/PhraseEditor.app/Contents/Resources/English.lproj/Localizable.strings" \
         "Yahoo! KeyKey is not running." \
@@ -277,7 +301,94 @@ brand_visible_strings() {
         "在您的 iDisk 上找不到${PRODUCT_SIMPLIFIED_NAME}的自订词数据库备份。"
 }
 
+force_traditional_localizations() {
+    local resources_dir="$1"
+    local source_lproj="${resources_dir}/zh_TW.lproj"
+    local target_lproj
+
+    if [[ ! -d "${source_lproj}" ]]; then
+        return
+    fi
+
+    for target_lproj in English.lproj zh_CN.lproj; do
+        rm -rf "${resources_dir}/${target_lproj}"
+        ditto --norsrc --noextattr --noqtn --noacl --nopersistRootless \
+            "${source_lproj}" \
+            "${resources_dir}/${target_lproj}"
+    done
+}
+
+force_all_traditional_localizations() {
+    force_traditional_localizations "${STAGED_APP}/Contents/Resources"
+    force_traditional_localizations "${STAGED_APP}/Contents/SharedSupport/Preferences.app/Contents/Resources"
+    force_traditional_localizations "${STAGED_APP}/Contents/SharedSupport/PhraseEditor.app/Contents/Resources"
+}
+
+set_about_window_nib_strings() {
+    local nib_dir="$1"
+    local title="$2"
+    local contributors="$3"
+    local tagline="$4"
+    local nib_file="${nib_dir}/keyedobjects.nib"
+
+    if [[ ! -f "${nib_file}" ]]; then
+        return
+    fi
+
+    plutil -lint "${nib_file}" >/dev/null
+    /usr/libexec/PlistBuddy -c "Set :\$objects:13 ${contributors}" "${nib_file}"
+    /usr/libexec/PlistBuddy -c "Set :\$objects:35 ${title}" "${nib_file}"
+    /usr/libexec/PlistBuddy -c "Set :\$objects:63 ${tagline}" "${nib_file}"
+    /usr/libexec/PlistBuddy -c "Set :\$objects:67 ${PROJECT_URL_LABEL}" "${nib_file}"
+    plutil -convert binary1 "${nib_file}"
+}
+
+brand_about_window_nibs() {
+    set_about_window_nib_strings \
+        "${STAGED_APP}/Contents/Resources/English.lproj/AboutWindow.nib" \
+        "關於${PRODUCT_CHINESE_NAME}" \
+        "${PRODUCT_DISPLAY_NAME} contributors" \
+        "Open Cangjie for macOS"
+    set_about_window_nib_strings \
+        "${STAGED_APP}/Contents/Resources/zh_TW.lproj/AboutWindow.nib" \
+        "關於${PRODUCT_CHINESE_NAME}" \
+        "${PRODUCT_DISPLAY_NAME} contributors" \
+        "為現代 macOS 而生的開源倉頡輸入法"
+    set_about_window_nib_strings \
+        "${STAGED_APP}/Contents/Resources/zh_CN.lproj/AboutWindow.nib" \
+        "關於${PRODUCT_CHINESE_NAME}" \
+        "${PRODUCT_DISPLAY_NAME} contributors" \
+        "為現代 macOS 而生的開源倉頡輸入法"
+}
+
 brand_visible_strings
+force_all_traditional_localizations
+brand_about_window_nibs
+
+BRAND_ASSETS_DIR="${BRAND_ASSETS_DIR}" "${SCRIPT_DIR}/tools/install-brand-assets.sh" "${STAGED_APP}"
+
+add_rpath_if_needed() {
+    local executable_path="$1"
+    local runtime_path="$2"
+
+    if [[ ! -f "${executable_path}" ]]; then
+        return
+    fi
+
+    if otool -l "${executable_path}" | grep -Fq "${runtime_path}"; then
+        return
+    fi
+
+    install_name_tool -add_rpath "${runtime_path}" "${executable_path}"
+}
+
+fix_helper_app_runtime_paths() {
+    add_rpath_if_needed \
+        "${STAGED_APP}/Contents/SharedSupport/Preferences.app/Contents/MacOS/Preferences" \
+        "@executable_path/../Frameworks"
+}
+
+fix_helper_app_runtime_paths
 
 set_bool_key() {
     local plist_file="$1"
@@ -357,11 +468,23 @@ find "${STAGE_DIR}" -name ".DS_Store" -delete
 find "${STAGE_DIR}" -name "._*" -delete
 xattr -cr "${STAGE_DIR}" >/dev/null 2>&1 || true
 
-if [[ -n "${APP_SIGN_IDENTITY}" ]]; then
-    codesign --force --deep --timestamp --options runtime --sign "${APP_SIGN_IDENTITY}" "${STAGED_APP}"
-else
-    codesign --force --deep --timestamp=none --sign - "${STAGED_APP}"
-fi
+codesign_bundle() {
+    local bundle_path="$1"
+
+    if [[ ! -e "${bundle_path}" ]]; then
+        return
+    fi
+
+    if [[ -n "${APP_SIGN_IDENTITY}" ]]; then
+        codesign --force --deep --timestamp --options runtime --sign "${APP_SIGN_IDENTITY}" "${bundle_path}"
+    else
+        codesign --force --deep --timestamp=none --sign - "${bundle_path}"
+    fi
+}
+
+codesign_bundle "${STAGED_APP}/Contents/SharedSupport/Preferences.app"
+codesign_bundle "${STAGED_APP}/Contents/SharedSupport/PhraseEditor.app"
+codesign_bundle "${STAGED_APP}"
 
 pkgbuild --analyze --root "${STAGE_DIR}" "${COMPONENT_PLIST}" >/dev/null
 lock_component_install_path "${COMPONENT_PLIST}"

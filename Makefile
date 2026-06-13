@@ -5,7 +5,12 @@ SOURCE_PKG := $(SOURCE_BUILD_DIR)/CangjieX.pkg
 SOURCE_BUILD_INFO := $(SOURCE_BUILD_DIR)/source-build-info.txt
 VERSION ?= 1.0.0
 
-.PHONY: build verify check checksum source-patch-check source-app source-build source-verify source-checksum probe-source doctor uninstall clean
+.PHONY: brand-assets build verify check checksum source-patch-check source-app source-build source-verify source-checksum probe-source doctor uninstall clean
+
+brand-assets:
+	mkdir -p build/tools
+	swiftc tools/generate-brand-assets.swift -o build/tools/generate-brand-assets
+	build/tools/generate-brand-assets
 
 build:
 	VERSION="$(VERSION)" ./build.sh
@@ -25,7 +30,8 @@ source-app: source-patch-check
 	PROBE_BUILD=1 SOURCE_BUILD_APP="$(SOURCE_APP)" ./tools/probe-upstream-source.sh
 
 source-build: source-app
-	VERSION="$(VERSION)" BUILD_DIR="$(SOURCE_BUILD_DIR)" SOURCE_APP="$(SOURCE_APP)" INPUT_METHOD_CONNECTION_NAME="CangjieX_1_Connection" ./build.sh
+	sleep 5
+	VERSION="$(VERSION)" BUILD_DIR="$(SOURCE_BUILD_DIR)" SOURCE_APP="$(SOURCE_APP)" INPUT_METHOD_CONNECTION_NAME="CangjieX_1_Connection" bash ./build.sh
 
 source-verify: source-build
 	EXPECTED_VERSION="$(VERSION)" REQUIRE_ARM64=1 REQUIRE_CANGJIE_DB=1 REQUIRE_ASSOCIATED_PHRASES=1 MAX_LS_MIN_SYSTEM_VERSION=11.0 EXPECTED_INPUT_METHOD_CONNECTION_NAME="CangjieX_1_Connection" bash ./verify-pkg.sh $(SOURCE_PKG)

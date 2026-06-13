@@ -5,9 +5,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PRODUCT_NAME="CangjieX"
 APP_BUNDLE_ID="${APP_BUNDLE_ID:-io.github.geekstek.inputmethod.CangjieX}"
 COMPONENT_ID="${COMPONENT_ID:-io.github.geekstek.cangjiex.inputmethod}"
+PREFERENCES_BUNDLE_ID="${PREFERENCES_BUNDLE_ID:-io.github.geekstek.cangjiex.preferences}"
+PHRASE_EDITOR_BUNDLE_ID="${PHRASE_EDITOR_BUNDLE_ID:-io.github.geekstek.cangjiex.phraseeditor}"
 PKG_PATH="${1:-build/${PRODUCT_NAME}.pkg}"
 BUILD_DIR="$(dirname "${PKG_PATH}")"
 COMPONENT_PKG="${BUILD_DIR}/${PRODUCT_NAME}Component.pkg"
+PROJECT_URL="${PROJECT_URL:-https://github.com/geekstek/CangjieX}"
+PROJECT_URL_LABEL="${PROJECT_URL_LABEL:-github.com/geekstek/CangjieX}"
 
 fail() {
     echo "verify-pkg: $*" >&2
@@ -91,6 +95,11 @@ grep -q "./Library/Input Methods/${PRODUCT_NAME}.app/Contents/MacOS/Yahoo! KeyKe
 if grep -q 'DownloadUpdate.app\|InstallerHelp.app' "${payload_files}"; then
     fail "payload still contains legacy Yahoo helper apps"
 fi
+
+if grep -Eq '/(Yahoo|Yahoo16|Yahoo32|PhraseEditor)[.]icns$' "${payload_files}"; then
+    fail "payload still contains legacy icon files"
+fi
+
 pass "payload contents"
 
 apple_double_count="$(grep -c '/\._' "${payload_files}" || true)"
@@ -109,14 +118,20 @@ stage_info_plist="${BUILD_DIR}/stage/Library/Input Methods/${PRODUCT_NAME}.app/C
 if [[ -f "${stage_info_plist}" ]]; then
     actual_bundle_id="$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "${stage_info_plist}")"
     actual_bundle_name="$(/usr/libexec/PlistBuddy -c "Print :CFBundleName" "${stage_info_plist}")"
+    actual_bundle_icon="$(/usr/libexec/PlistBuddy -c "Print :CFBundleIconFile" "${stage_info_plist}")"
     actual_input_source_id="$(/usr/libexec/PlistBuddy -c "Print :TISInputSourceID" "${stage_info_plist}")"
+    actual_input_icon="$(/usr/libexec/PlistBuddy -c "Print :tsInputMethodIconFileKey" "${stage_info_plist}")"
 
     [[ "${actual_bundle_id}" == "${APP_BUNDLE_ID}" ]] \
         || fail "bundle id is ${actual_bundle_id}, expected ${APP_BUNDLE_ID}"
     [[ "${actual_bundle_name}" == "${PRODUCT_NAME}" ]] \
         || fail "bundle name is ${actual_bundle_name}, expected ${PRODUCT_NAME}"
+    [[ "${actual_bundle_icon}" == "CangjieX" ]] \
+        || fail "bundle icon is ${actual_bundle_icon}, expected CangjieX"
     [[ "${actual_input_source_id}" == "${APP_BUNDLE_ID}" ]] \
         || fail "input source id is ${actual_input_source_id}, expected ${APP_BUNDLE_ID}"
+    [[ "${actual_input_icon}" == "CangjieXMenu.icns" ]] \
+        || fail "input method icon is ${actual_input_icon}, expected CangjieXMenu.icns"
 
     if [[ -n "${EXPECTED_VERSION:-}" ]]; then
         actual_bundle_version="$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "${stage_info_plist}")"
@@ -151,7 +166,18 @@ if [[ -f "${stage_info_plist}" ]]; then
 
     executable_path="${BUILD_DIR}/stage/Library/Input Methods/${PRODUCT_NAME}.app/Contents/MacOS/Yahoo! KeyKey"
     if [[ -f "${executable_path}" ]]; then
-        executable_archs="$(lipo -archs "${executable_path}")"
+        executable_file_info="$(file "${executable_path}")"
+        executable_archs=""
+
+        if [[ "${executable_file_info}" == *"x86_64"* ]]; then
+            executable_archs="${executable_archs} x86_64"
+        fi
+
+        if [[ "${executable_file_info}" == *"arm64"* ]]; then
+            executable_archs="${executable_archs} arm64"
+        fi
+
+        executable_archs="${executable_archs# }"
 
         if [[ "${REQUIRE_ARM64:-0}" == "1" ]] && [[ " ${executable_archs} " != *" arm64 "* ]]; then
             fail "input method executable is missing arm64 architecture: ${executable_archs}"
@@ -179,6 +205,37 @@ if [[ -f "${stage_info_plist}" ]]; then
     else
         fail "app code signature is invalid"
     fi
+
+    for helper_app in \
+        "${BUILD_DIR}/stage/Library/Input Methods/${PRODUCT_NAME}.app/Contents/SharedSupport/Preferences.app" \
+        "${BUILD_DIR}/stage/Library/Input Methods/${PRODUCT_NAME}.app/Contents/SharedSupport/PhraseEditor.app"; do
+        if codesign --verify --deep --strict "${helper_app}" >/dev/null 2>&1; then
+            :
+        else
+            fail "$(basename "${helper_app}") code signature is invalid"
+        fi
+    done
+
+    pass "helper app code signatures"
+
+    preferences_executable="${BUILD_DIR}/stage/Library/Input Methods/${PRODUCT_NAME}.app/Contents/SharedSupport/Preferences.app/Contents/MacOS/Preferences"
+    if otool -L "${preferences_executable}" | grep -Fq '@rpath/DotMacKit.framework/DotMacKit'; then
+        otool -l "${preferences_executable}" | grep -Fq '@executable_path/../Frameworks' \
+            || fail "Preferences.app cannot resolve bundled DotMacKit.framework"
+    fi
+
+    pass "helper app runtime paths"
+
+    for brand_asset in \
+        "${BUILD_DIR}/stage/Library/Input Methods/${PRODUCT_NAME}.app/Contents/Resources/CangjieX.icns" \
+        "${BUILD_DIR}/stage/Library/Input Methods/${PRODUCT_NAME}.app/Contents/Resources/CangjieXMenu.icns" \
+        "${BUILD_DIR}/stage/Library/Input Methods/${PRODUCT_NAME}.app/Contents/Resources/About.jpg" \
+        "${BUILD_DIR}/stage/Library/Input Methods/${PRODUCT_NAME}.app/Contents/SharedSupport/Preferences.app/Contents/Resources/CangjieXPreferences.icns" \
+        "${BUILD_DIR}/stage/Library/Input Methods/${PRODUCT_NAME}.app/Contents/SharedSupport/PhraseEditor.app/Contents/Resources/CangjieXPhraseEditor.icns"; do
+        [[ -f "${brand_asset}" ]] || fail "missing brand asset: ${brand_asset}"
+    done
+
+    pass "brand assets"
 
     if [[ "${REQUIRE_CANGJIE_DB:-0}" == "1" ]]; then
         database_path="${BUILD_DIR}/stage/Library/Input Methods/${PRODUCT_NAME}.app/Contents/Resources/Databases/KeyKey.db"
@@ -209,18 +266,83 @@ if [[ -f "${stage_info_plist}" ]]; then
         pass "associated phrases (${associated_phrase_count} heads)"
     fi
 
+    database_path="${BUILD_DIR}/stage/Library/Input Methods/${PRODUCT_NAME}.app/Contents/Resources/Databases/KeyKey.db"
+    [[ -f "${database_path}" ]] || fail "missing KeyKey database: ${database_path}"
+
+    legacy_onekey_count="$(sqlite3 "${database_path}" "SELECT COUNT(*) FROM prepopulated_service_data WHERE key = 'onekey_services' OR value LIKE '%Yahoo! Search%' OR value LIKE '%Wretch.cc%' OR value LIKE '%Yahoo! Taiwan Auction%' OR value LIKE '%Yahoo! Taiwan Map%';" 2>/dev/null)" \
+        || fail "unable to inspect database for legacy OneKey service data"
+
+    [[ "${legacy_onekey_count}" == "0" ]] \
+        || fail "database still contains legacy OneKey service data"
+
+    if find "${BUILD_DIR}/stage/Library/Input Methods/${PRODUCT_NAME}.app" \( -name '*OneKey*' -o -name 'OneKey.plist' \) | grep -q .; then
+        fail "app bundle still contains legacy OneKey files"
+    fi
+
+    executable_path="${BUILD_DIR}/stage/Library/Input Methods/${PRODUCT_NAME}.app/Contents/MacOS/Yahoo! KeyKey"
+    if [[ -f "${executable_path}" ]]; then
+        legacy_onekey_strings_file="${tmp_dir}/legacy-onekey-strings.txt"
+        strings -a "${executable_path}" >"${legacy_onekey_strings_file}"
+
+        if grep -Eq 'YKAFOneKey|OneKeyDataCopy|onekey_services|OneKey Services|Yahoo! Search|Wretch[.]cc|Yahoo! Taiwan Auction|Yahoo! Taiwan Map|One-Key' "${legacy_onekey_strings_file}"; then
+            fail "input method executable still contains legacy OneKey service strings"
+        fi
+    fi
+
+    pass "legacy OneKey service removed"
+
+    if [[ -f "${executable_path}" ]]; then
+        modern_menu_strings_file="${tmp_dir}/modern-menu-strings.txt"
+        strings -a "${executable_path}" >"${modern_menu_strings_file}"
+
+        grep -Fq "${PROJECT_URL}" "${modern_menu_strings_file}" \
+            || fail "input method executable does not contain project GitHub URL"
+        grep -Fq "${PREFERENCES_BUNDLE_ID}" "${modern_menu_strings_file}" \
+            || fail "input method executable does not contain the CangjieX Preferences bundle id"
+
+        if grep -Eq 'Bopomofo Correction|Associated Phrase|Use Full-Width Characters|Traditional Chinese to Simpified Chinese|Traditional Chinese to Simplified Chinese|Simplified Chinese to Traditional Chinese|com[.]yahoo[.]inputmethod[.]KeyKey[.]Preferences|http://tw[.]help[.]cc[.]yahoo[.]com|http://tw[.]media[.]yahoo[.]com/keykey/help' "${modern_menu_strings_file}"; then
+            fail "input method executable still contains legacy English menu or Yahoo help strings"
+        fi
+
+        pass "modernized menu strings"
+    fi
+
     preferences_name="$(/usr/libexec/PlistBuddy -c "Print :CFBundleName" "${BUILD_DIR}/stage/Library/Input Methods/${PRODUCT_NAME}.app/Contents/SharedSupport/Preferences.app/Contents/Info.plist")"
+    preferences_bundle_id="$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "${BUILD_DIR}/stage/Library/Input Methods/${PRODUCT_NAME}.app/Contents/SharedSupport/Preferences.app/Contents/Info.plist")"
     phrase_editor_name="$(/usr/libexec/PlistBuddy -c "Print :CFBundleName" "${BUILD_DIR}/stage/Library/Input Methods/${PRODUCT_NAME}.app/Contents/SharedSupport/PhraseEditor.app/Contents/Info.plist")"
+    phrase_editor_bundle_id="$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "${BUILD_DIR}/stage/Library/Input Methods/${PRODUCT_NAME}.app/Contents/SharedSupport/PhraseEditor.app/Contents/Info.plist")"
     about_title="$(/usr/libexec/PlistBuddy -c 'Print :"About Yahoo! KeyKey"' "${BUILD_DIR}/stage/Library/Input Methods/${PRODUCT_NAME}.app/Contents/Resources/English.lproj/Localizable.strings")"
+    english_about_nib_title="$(/usr/libexec/PlistBuddy -c 'Print :$objects:35' "${BUILD_DIR}/stage/Library/Input Methods/${PRODUCT_NAME}.app/Contents/Resources/English.lproj/AboutWindow.nib/keyedobjects.nib")"
+    traditional_about_nib_title="$(/usr/libexec/PlistBuddy -c 'Print :$objects:35' "${BUILD_DIR}/stage/Library/Input Methods/${PRODUCT_NAME}.app/Contents/Resources/zh_TW.lproj/AboutWindow.nib/keyedobjects.nib")"
+    simplified_about_nib_title="$(/usr/libexec/PlistBuddy -c 'Print :$objects:35' "${BUILD_DIR}/stage/Library/Input Methods/${PRODUCT_NAME}.app/Contents/Resources/zh_CN.lproj/AboutWindow.nib/keyedobjects.nib")"
+    english_about_github="$(/usr/libexec/PlistBuddy -c 'Print :$objects:67' "${BUILD_DIR}/stage/Library/Input Methods/${PRODUCT_NAME}.app/Contents/Resources/English.lproj/AboutWindow.nib/keyedobjects.nib")"
+    traditional_about_github="$(/usr/libexec/PlistBuddy -c 'Print :$objects:67' "${BUILD_DIR}/stage/Library/Input Methods/${PRODUCT_NAME}.app/Contents/Resources/zh_TW.lproj/AboutWindow.nib/keyedobjects.nib")"
+    simplified_about_github="$(/usr/libexec/PlistBuddy -c 'Print :$objects:67' "${BUILD_DIR}/stage/Library/Input Methods/${PRODUCT_NAME}.app/Contents/Resources/zh_CN.lproj/AboutWindow.nib/keyedobjects.nib")"
     phrase_editor_warning="$(/usr/libexec/PlistBuddy -c 'Print :"Yahoo! KeyKey is not running."' "${BUILD_DIR}/stage/Library/Input Methods/${PRODUCT_NAME}.app/Contents/SharedSupport/PhraseEditor.app/Contents/Resources/English.lproj/Localizable.strings")"
 
-    [[ "${preferences_name}" == "${PRODUCT_NAME} Preferences" ]] \
+    [[ "${preferences_name}" == "倉頡星偏好設定" ]] \
         || fail "preferences app name is ${preferences_name}"
-    [[ "${phrase_editor_name}" == "${PRODUCT_NAME} Phrase Editor" ]] \
+    [[ "${preferences_bundle_id}" == "${PREFERENCES_BUNDLE_ID}" ]] \
+        || fail "preferences app bundle id is ${preferences_bundle_id}"
+    [[ "${phrase_editor_name}" == "倉頡星詞彙編輯程式" ]] \
         || fail "phrase editor app name is ${phrase_editor_name}"
-    [[ "${about_title}" == "About ${PRODUCT_NAME}" ]] \
+    [[ "${phrase_editor_bundle_id}" == "${PHRASE_EDITOR_BUNDLE_ID}" ]] \
+        || fail "phrase editor app bundle id is ${phrase_editor_bundle_id}"
+    [[ "${about_title}" == "關於倉頡星" ]] \
         || fail "about title is ${about_title}"
-    [[ "${phrase_editor_warning}" == "${PRODUCT_NAME} is not running." ]] \
+    [[ "${english_about_nib_title}" == "關於倉頡星" ]] \
+        || fail "English AboutWindow title is ${english_about_nib_title}"
+    [[ "${traditional_about_nib_title}" == "關於倉頡星" ]] \
+        || fail "Traditional Chinese AboutWindow title is ${traditional_about_nib_title}"
+    [[ "${simplified_about_nib_title}" == "關於倉頡星" ]] \
+        || fail "Simplified Chinese AboutWindow title is ${simplified_about_nib_title}"
+    [[ "${english_about_github}" == "${PROJECT_URL_LABEL}" ]] \
+        || fail "English AboutWindow GitHub link is ${english_about_github}"
+    [[ "${traditional_about_github}" == "${PROJECT_URL_LABEL}" ]] \
+        || fail "Traditional Chinese AboutWindow GitHub link is ${traditional_about_github}"
+    [[ "${simplified_about_github}" == "${PROJECT_URL_LABEL}" ]] \
+        || fail "Simplified Chinese AboutWindow GitHub link is ${simplified_about_github}"
+    [[ "${phrase_editor_warning}" == "倉頡星並不在執行中" ]] \
         || fail "phrase editor warning is ${phrase_editor_warning}"
     pass "visible branding"
 else

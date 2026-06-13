@@ -11,6 +11,8 @@
 
 打包過程會移除舊版安裝說明 app 與 Yahoo 更新檢查 app，避免正式發佈包攜帶已過時的 Yahoo 安裝流程與更新入口。
 
+目前發佈包會替換舊 Yahoo 圖示與 About 圖，使用 CangjieX / 倉頡星 的深色星空圖標系統；中文系統中輸入法顯示名稱為「倉頡星」，英文系統中顯示為「CangjieX」。
+
 ## 主打方向
 
 - 倉頡核心輸入
@@ -154,7 +156,15 @@ build/CangjieX.pkg
 
 安裝前會移除舊的 `/Library/Input Methods/CangjieX.app` 與 `/Library/Input Methods/Yahoo! KeyKey.app`，避免同一套舊輸入法服務被 macOS 重複註冊。這不會刪除使用者詞庫或偏好資料。
 
-安裝後請登出再登入，然後到「系統設定 > 鍵盤 > 輸入方式」啟用 CangjieX。
+安裝：
+
+```sh
+sudo installer -pkg CangjieX.pkg -target /
+```
+
+安裝成功後請登出再登入。重新登入後，到「系統設定 > 鍵盤 > 文字輸入 > 編輯」，在中文輸入法中加入「倉頡星」；英文系統中可能顯示為「CangjieX」。
+
+如果安裝後列表中仍沒有看到「倉頡星 / CangjieX」，請先確認安裝的是最新 `CangjieX.pkg`，然後再登出登入一次。macOS 輸入法服務常需要重新登入才會刷新。
 
 卸載：
 
