@@ -740,6 +740,239 @@ RUBY
         source_patch_applied "modernize-input-menu" "forced associated phrases on, removed the legacy help menu, localized menu fallbacks, and pointed About to GitHub."
     fi
 
+    if [[ -f "${about_controller_source}" ]] && ! grep -q '_installCangjieXAboutControls' "${about_controller_source}"; then
+        PROJECT_URL="${PROJECT_URL}" ruby - "${about_controller_source}" <<'RUBY'
+path = ARGV.fetch(0)
+source = File.read(path)
+project_url = ENV.fetch("PROJECT_URL")
+project_url_label = project_url.sub(%r{\Ahttps?://}, "")
+
+source.sub!(%Q{\t[[self window] setLevel:NSFloatingWindowLevel];\t\n\t[[self window] setBackgroundColor:[NSColor whiteColor]];\n\tdefaultWindowSize = [[self window] frame].size;\n}, %Q{\t[[self window] setLevel:NSFloatingWindowLevel];\t\n\t[[self window] setTitle:@"關於倉頡星"];\n\t[[self window] setBackgroundColor:[NSColor whiteColor]];\n\tdefaultWindowSize = [[self window] frame].size;\n\t[self _installCangjieXAboutControls];\n})
+
+methods = <<~'OBJC'
+
+- (NSString *)_shellQuotedString:(NSString *)string
+{
+	NSString *singleQuote = [NSString stringWithFormat:@"%c", 39];
+	NSString *replacement = [NSString stringWithFormat:@"%c%c%c%c", 39, 92, 39, 39];
+	NSString *escaped = [string stringByReplacingOccurrencesOfString:singleQuote withString:replacement];
+	return [NSString stringWithFormat:@"%c%@%c", 39, escaped, 39];
+}
+
+- (NSString *)_appleScriptQuotedString:(NSString *)string
+{
+	NSString *backslash = [NSString stringWithFormat:@"%c", 92];
+	NSString *doubleBackslash = [NSString stringWithFormat:@"%c%c", 92, 92];
+	NSString *escapedQuote = [NSString stringWithFormat:@"%c%c", 92, 34];
+	NSString *escaped = [string stringByReplacingOccurrencesOfString:backslash withString:doubleBackslash];
+	escaped = [escaped stringByReplacingOccurrencesOfString:[NSString stringWithFormat:@"%c", 34] withString:escapedQuote];
+	return [NSString stringWithFormat:@"%c%@%c", 34, escaped, 34];
+}
+
+- (NSImageView *)_largestImageViewInView:(NSView *)view
+{
+	NSImageView *result = nil;
+	CGFloat resultArea = 0.0;
+	NSEnumerator *enumerator = [[view subviews] objectEnumerator];
+	NSView *subview = nil;
+
+	while (subview = [enumerator nextObject]) {
+		if ([subview isKindOfClass:[NSImageView class]]) {
+			NSRect frame = [subview frame];
+			CGFloat area = NSWidth(frame) * NSHeight(frame);
+			if (area > resultArea) {
+				result = (NSImageView *)subview;
+				resultArea = area;
+			}
+		}
+
+		NSImageView *childResult = [self _largestImageViewInView:subview];
+		if (childResult) {
+			NSRect childFrame = [childResult frame];
+			CGFloat childArea = NSWidth(childFrame) * NSHeight(childFrame);
+			if (childArea > resultArea) {
+				result = childResult;
+				resultArea = childArea;
+			}
+		}
+	}
+
+	return result;
+}
+
+- (void)_hideLegacyFeedbackButtonsInView:(NSView *)view
+{
+	NSEnumerator *enumerator = [[view subviews] objectEnumerator];
+	NSView *subview = nil;
+
+	while (subview = [enumerator nextObject]) {
+		if ([subview isKindOfClass:[NSButton class]] && [(NSButton *)subview action] == @selector(launchCustomerCare:)) {
+			[subview setHidden:YES];
+		}
+
+		[self _hideLegacyFeedbackButtonsInView:subview];
+	}
+}
+
+- (void)_hideLegacyAboutTextFieldsInView:(NSView *)view
+{
+	NSEnumerator *enumerator = [[view subviews] objectEnumerator];
+	NSView *subview = nil;
+
+	while (subview = [enumerator nextObject]) {
+		if ([subview isKindOfClass:[NSTextField class]]) {
+			[subview setHidden:YES];
+		}
+
+		[self _hideLegacyAboutTextFieldsInView:subview];
+	}
+}
+
+- (void)_removeCangjieXAboutControlsInView:(NSView *)view
+{
+	NSArray *subviews = [[view subviews] copy];
+	NSEnumerator *enumerator = [subviews objectEnumerator];
+	NSView *subview = nil;
+
+	while (subview = [enumerator nextObject]) {
+		if ([subview isKindOfClass:[NSButton class]]) {
+			SEL action = [(NSButton *)subview action];
+			if (action == @selector(launchProjectSite:) || action == @selector(uninstallInputMethod:)) {
+				[subview removeFromSuperview];
+				continue;
+			}
+		}
+
+		[self _removeCangjieXAboutControlsInView:subview];
+	}
+
+	[subviews release];
+}
+
+- (void)_installCangjieXAboutControls
+{
+	NSView *contentView = [[self window] contentView];
+	if (!contentView) {
+		return;
+	}
+
+	[self _hideLegacyFeedbackButtonsInView:contentView];
+	[self _hideLegacyAboutTextFieldsInView:contentView];
+	[self _removeCangjieXAboutControlsInView:contentView];
+
+	NSRect contentBounds = [contentView bounds];
+	NSImageView *imageView = [self _largestImageViewInView:contentView];
+	NSRect imageFrame = imageView ? [imageView convertRect:[imageView bounds] toView:contentView] : NSMakeRect(20.0, NSHeight(contentBounds) - 110.0, NSWidth(contentBounds) - 40.0, 80.0);
+	CGFloat centerX = NSMidX(imageFrame);
+	CGFloat linkWidth = MIN(NSWidth(contentBounds) - 40.0, 260.0);
+	CGFloat linkY = MAX(76.0, NSMinY(imageFrame) - 34.0);
+	CGFloat removeWidth = MIN(NSWidth(contentBounds) - 40.0, 132.0);
+	CGFloat removeY = MAX(36.0, linkY - 42.0);
+
+	NSButton *linkButton = [[[NSButton alloc] initWithFrame:NSMakeRect(centerX - (linkWidth / 2.0), linkY, linkWidth, 22.0)] autorelease];
+	[linkButton setBordered:NO];
+	[linkButton setButtonType:NSMomentaryChangeButton];
+	[linkButton setTarget:self];
+	[linkButton setAction:@selector(launchProjectSite:)];
+	[linkButton setToolTip:@"開啟 GitHub 專案頁"];
+	[linkButton setAutoresizingMask:NSViewMinYMargin];
+
+	NSMutableAttributedString *title = [[[NSMutableAttributedString alloc] initWithString:@"__PROJECT_URL_LABEL__"] autorelease];
+	NSRange titleRange = NSMakeRange(0, [title length]);
+	[title addAttribute:NSForegroundColorAttributeName value:[NSColor systemBlueColor] range:titleRange];
+	[title addAttribute:NSUnderlineStyleAttributeName value:[NSNumber numberWithInt:NSUnderlineStyleSingle] range:titleRange];
+	[linkButton setAttributedTitle:title];
+	[contentView addSubview:linkButton];
+
+	NSButton *removeButton = [[[NSButton alloc] initWithFrame:NSMakeRect(centerX - (removeWidth / 2.0), removeY, removeWidth, 30.0)] autorelease];
+	[removeButton setTitle:@"移除輸入法"];
+	[removeButton setBezelStyle:NSRoundedBezelStyle];
+	[removeButton setTarget:self];
+	[removeButton setAction:@selector(uninstallInputMethod:)];
+	[removeButton setToolTip:@"移除倉頡星與本機偏好資料"];
+	[removeButton setAutoresizingMask:NSViewMinYMargin];
+	[contentView addSubview:removeButton];
+}
+
+- (IBAction)launchProjectSite:(id)sender
+{
+	[[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"__PROJECT_URL__"]];
+}
+
+- (IBAction)uninstallInputMethod:(id)sender
+{
+	NSAlert *alert = [[[NSAlert alloc] init] autorelease];
+	[alert setMessageText:@"移除倉頡星？"];
+	[alert setInformativeText:@"這會移除倉頡星輸入法、安裝紀錄與本機偏好資料。完成後請登出再登入。"];
+	[alert addButtonWithTitle:@"移除"];
+	[alert addButtonWithTitle:@"取消"];
+
+	if ([alert runModal] != NSAlertFirstButtonReturn) {
+		return;
+	}
+
+	NSString *bundlePath = [[NSBundle mainBundle] bundlePath];
+	NSString *homePath = NSHomeDirectory();
+	NSString *supportPath = [homePath stringByAppendingPathComponent:@"Library/Application Support/CangjieX"];
+	NSString *inputPreferencePath = [homePath stringByAppendingPathComponent:@"Library/Preferences/io.github.geekstek.inputmethod.CangjieX.plist"];
+	NSString *preferenceAppPath = [homePath stringByAppendingPathComponent:@"Library/Preferences/io.github.geekstek.cangjiex.preferences.plist"];
+	NSString *phraseEditorPath = [homePath stringByAppendingPathComponent:@"Library/Preferences/io.github.geekstek.cangjiex.phraseeditor.plist"];
+	NSString *quotedHomePath = [self _shellQuotedString:homePath];
+
+	NSString *command = [NSString stringWithFormat:@"/usr/sbin/pkgutil --forget %@ >/dev/null 2>&1 || true\n/bin/rm -rf %@ %@ %@ %@ %@ %@/Library/Preferences/com.yahoo.KeyKey*.plist %@/Library/Caches/com.yahoo.KeyKey* %@/Library/Caches/io.github.geekstek.inputmethod.CangjieX* %@/Library/Caches/CangjieX*\n/usr/bin/killall %@ >/dev/null 2>&1 || true\n/usr/bin/killall CangjieX >/dev/null 2>&1 || true",
+		[self _shellQuotedString:@"io.github.geekstek.cangjiex.inputmethod"],
+		[self _shellQuotedString:bundlePath],
+		[self _shellQuotedString:supportPath],
+		[self _shellQuotedString:inputPreferencePath],
+		[self _shellQuotedString:preferenceAppPath],
+		[self _shellQuotedString:phraseEditorPath],
+		quotedHomePath,
+		quotedHomePath,
+		quotedHomePath,
+		quotedHomePath,
+		[self _shellQuotedString:@"Yahoo! KeyKey"]];
+	NSString *scriptSource = [NSString stringWithFormat:@"do shell script %@ with administrator privileges", [self _appleScriptQuotedString:command]];
+	NSAppleScript *script = [[[NSAppleScript alloc] initWithSource:scriptSource] autorelease];
+	NSDictionary *errorInfo = nil;
+
+	if (![script executeAndReturnError:&errorInfo]) {
+		if ([[errorInfo objectForKey:NSAppleScriptErrorNumber] intValue] == -128) {
+			return;
+		}
+
+		NSAlert *errorAlert = [[[NSAlert alloc] init] autorelease];
+		[errorAlert setMessageText:@"無法移除倉頡星"];
+		[errorAlert setInformativeText:[NSString stringWithFormat:@"%@", errorInfo]];
+		[errorAlert runModal];
+	}
+}
+OBJC
+
+methods = methods.gsub("__PROJECT_URL__", project_url).gsub("__PROJECT_URL_LABEL__", project_url_label)
+
+unless source.sub!(/\n\n#pragma mark Interface Builder actions/, "\n#{methods}\n#pragma mark Interface Builder actions")
+  abort "CVAboutController insertion point was not found"
+end
+
+unless source.sub!(%Q{\t\t[self _updateContent];\n\t\t[[self window] center];\n}, %Q{\t\t[self _updateContent];\n\t\t[self _installCangjieXAboutControls];\n\t\t[[self window] center];\n})
+  abort "CVAboutController showWindow insertion point was not found"
+end
+
+source.gsub!(%q{[[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"http://tw.help.cc.yahoo.com/feedback.html?id=3430"]];}, %Q{[[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"#{project_url}"]];})
+
+unless source.include?("[[self window] setTitle:@\"關於倉頡星\"]") &&
+       source.include?("launchProjectSite:") &&
+       source.include?("uninstallInputMethod:") &&
+       source.include?("_hideLegacyAboutTextFieldsInView") &&
+       source.include?("移除輸入法")
+  abort "CVAboutController About controls were not installed"
+end
+
+File.write(path, source)
+RUBY
+        source_patch_applied "about-window-controls" "set the CangjieX About title, added a GitHub link, and added an uninstall action."
+    fi
+
     if [[ -f "${takao_global_source}" ]] && grep -q '\[fromColor hueComponent\]' "${takao_global_source}"; then
         ruby - "${takao_global_source}" <<'RUBY'
 path = ARGV.fetch(0)

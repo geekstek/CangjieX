@@ -22,6 +22,24 @@ pass() {
     echo "ok: $*"
 }
 
+binary_contains_text() {
+    local file="$1"
+    local text="$2"
+
+    ruby -e '
+        file = ARGV.fetch(0)
+        text = ARGV.fetch(1).dup.force_encoding("UTF-8")
+        data = File.binread(file)
+        variants = [
+          text.b,
+          text.encode("UTF-16LE").b,
+          text.encode("UTF-16BE").b,
+        ]
+
+        exit(variants.any? { |variant| data.include?(variant) } ? 0 : 1)
+    ' "${file}" "${text}"
+}
+
 version_lte() {
     local actual="$1"
     local maximum="$2"
@@ -297,6 +315,16 @@ if [[ -f "${stage_info_plist}" ]]; then
 
         grep -Fq "${PROJECT_URL}" "${modern_menu_strings_file}" \
             || fail "input method executable does not contain project GitHub URL"
+        grep -Fq "${PROJECT_URL_LABEL}" "${modern_menu_strings_file}" \
+            || fail "input method executable does not contain project GitHub link label"
+        binary_contains_text "${executable_path}" "關於倉頡星" \
+            || fail "input method executable does not contain the CangjieX About window title"
+        binary_contains_text "${executable_path}" "移除輸入法" \
+            || fail "input method executable does not contain the uninstall button title"
+        grep -Fq "com.yahoo.KeyKey*.plist" "${modern_menu_strings_file}" \
+            || fail "input method executable does not remove legacy KeyKey preference files"
+        grep -Fq "Library/Caches/com.yahoo.KeyKey*" "${modern_menu_strings_file}" \
+            || fail "input method executable does not remove legacy KeyKey cache files"
         grep -Fq "${PREFERENCES_BUNDLE_ID}" "${modern_menu_strings_file}" \
             || fail "input method executable does not contain the CangjieX Preferences bundle id"
 

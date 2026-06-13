@@ -31,6 +31,7 @@ project-public-sqlite-loader	crypto	Takao.xcodeproj/project.pbxproj	Disable OVLO
 project-cangjiex-identifiers	branding	Takao.xcodeproj/project.pbxproj	Replace Yahoo KeyKey service and loader identifiers with CangjieX.
 remove-onekey-service	input	ModulePackages/YKAFOneKey/*	Remove the legacy backtick-triggered Yahoo OneKey service menu, search modules, and data.
 modernize-input-menu	ui	Loaders/OSX-IMK/*	Force associated phrases on, remove legacy help UI, modernize Preferences launch, localize menu labels, and point About to GitHub.
+about-window-controls	ui	Loaders/OSX-IMK/CVAboutController.mm	Set the CangjieX About window title, add a GitHub link, and add an uninstall action.
 preferences-color-rgb	ui	PreferenceApplications/OSX/TakaoGlobal.m	Convert preference color swatches to RGB before deriving hue and brightness on modern AppKit.
 modernize-preferences-ui	ui	PreferenceApplications/OSX/*	Trim legacy preference panes, force Traditional Chinese UI resources, and expose Traditional-to-Simplified output.
 sqlite-cerod-public-stub	crypto	ExternalLibraries/sqlite-cerod-see/*	Use bundled public SQLite plus SEE/CEROD compatibility stubs.
