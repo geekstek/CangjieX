@@ -136,7 +136,7 @@ build/source/CangjieX.pkg
 
 同時會輸出 `build/source/source-build-info.txt`，記錄 pkg SHA256、上游 commit、補丁清單 SHA256 與構建環境，方便日後排查不同發佈包的來源。
 
-源碼路線會額外檢查輸入法主程式包含 `arm64`、最低系統版本不高於 macOS 11.0，並確認 `KeyKey.db` 內含倉頡碼表與繁體聯想詞資料。聯想詞會由上游開放詞庫與 `tools/common-associated-phrases.txt` 重新產生，並在打包時檢查常用候選順序與簡體字混入。由於目前仍有 DotMacKit、SQLite SEE/CEROD 與部分舊安全驗證路徑的 probe-only 替代實作，智慧注音與舊加密使用者資料庫仍不作為發佈重點。
+源碼路線會額外檢查輸入法主程式包含 `arm64`、最低系統版本不高於 macOS 11.0，並確認 `KeyKey.db` 內含倉頡碼表與繁體聯想詞資料。聯想詞會由 `tools/common-associated-phrases.txt` 的倉頡星高頻詞、固定版本 Jieba 繁體大詞典、固定版本 OpenCC 詞組資料與上游開放詞庫重新產生，並在打包時檢查常用候選順序與簡體字混入。由於目前仍有 DotMacKit、SQLite SEE/CEROD 與部分舊安全驗證路徑的 probe-only 替代實作，智慧注音與舊加密使用者資料庫仍不作為發佈重點。
 
 預設穩定包仍輸出到：
 

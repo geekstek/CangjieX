@@ -1,8 +1,10 @@
 # frozen_string_literal: true
 
 module AssociatedPhraseQuality
-  SIMPLIFIED_ONLY_CHARS = %w[
-    们 经 个 样 种 为 会 没 关 问 说 过 现 觉 开 题 资 库 设 输 仓 颉 联 词 这
+  OPENCC_ST_CHARACTERS_PATH = File.expand_path("vendor/opencc/STCharacters.txt", __dir__)
+
+  MANUAL_SIMPLIFIED_ONLY_CHARS = %w[
+    们 经 个 样 种 为 会 没 关 问 说 过 现 觉 开 题 资 库 设 输 仓 颉 联 词 这 万 么
     发 复 习 书 买 亚 产 亲 从 仓 仪 价 众 优 伤 伦 体 债 储 儿 兰 兴 养 军 农
     冲 决 况 冻 净 凉 减 凤 凭 凯 击 则 刚 创 删 剂 剑 剧 劝 办 务 动 励 势
     区 医 华 协 单 卖 卢 卫 厅 压 县 参 双 变 叶 号 叹 吗 启 员 响 哑 唤 喷 嘱
@@ -43,6 +45,24 @@ module AssociatedPhraseQuality
     鸳 鸿 鹅 鹊 鹏 麦 黄 黉 点 党 黩 齐 齿 龄 龈 龙 龟
   ].uniq.freeze
 
+  OPENCC_SIMPLIFIED_ONLY_CHARS = if File.file?(OPENCC_ST_CHARACTERS_PATH)
+    File.readlines(OPENCC_ST_CHARACTERS_PATH, encoding: "UTF-8").each_with_object([]) do |line, chars|
+      line = line.to_s.encode("UTF-8", invalid: :replace, undef: :replace, replace: "").strip
+      next if line.empty? || line.start_with?("#")
+
+      source, targets = line.split(/\t+/, 2)
+      next unless source&.each_char&.count == 1
+      next if targets.to_s.empty?
+
+      target_chars = targets.split(/\s+/)
+      chars << source unless target_chars.include?(source)
+    end
+  else
+    []
+  end.uniq.freeze
+
+  SIMPLIFIED_ONLY_CHARS = (MANUAL_SIMPLIFIED_ONLY_CHARS + OPENCC_SIMPLIFIED_ONLY_CHARS).uniq.freeze
+
   SIMPLIFIED_ONLY_PATTERN = Regexp.union(SIMPLIFIED_ONLY_CHARS)
 
   REQUIRED_TAILS = {
@@ -56,6 +76,13 @@ module AssociatedPhraseQuality
     "不" => %w[是 要 能 會 用],
     "沒" => %w[有 事 關係 問題],
     "可" => %w[以 能 是 用 行],
+    "發" => %w[現 生 展 表 布 佈 送 票 起],
+    "投" => %w[訴 資 入 票 稿 放 遞],
+    "看" => %w[到 見 法 起來],
+    "確" => %w[認 定],
+    "安" => %w[裝],
+    "移" => %w[除],
+    "繼" => %w[續 承 任 而],
     "倉" => %w[頡 頡星],
     "輸" => %w[入 入法],
     "聯" => %w[想 絡 繫],
@@ -67,10 +94,13 @@ module AssociatedPhraseQuality
     "已" => %w[經 知 有 在 是],
     "這" => %w[個 些 樣 裡 次 種 是],
     "我" => %w[們 的 是 會 要 想],
+    "發" => %w[現 生 展 表 布 佈 送 票 起],
+    "投" => %w[訴 資 入 票 稿 放 遞],
+    "繼" => %w[續 承 任 而],
     "倉" => %w[頡 頡星],
   }.freeze
 
-  MIN_ASSOCIATED_HEADS = 2_000
+  MIN_ASSOCIATED_HEADS = 5_500
 
   module_function
 
