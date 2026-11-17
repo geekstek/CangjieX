@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """Verify the expanded installer that will be distributed, without installing it."""
 import hashlib
+import json
 import plistlib
+import struct
 import subprocess
 import sys
+import uuid
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
@@ -42,6 +45,16 @@ assert bundle is not None and bundle.get("id") == plist["CFBundleIdentifier"]
 relocation = info.find("relocate")
 assert relocation is None or not list(relocation), "Installer must not search for and relocate another app"
 assert distribution.find("locator") is None and distribution.find("pkg-ref/relocate") is None
+assert distribution.find("pkg-ref").get("onConclusion") == "RequireLogout", "Manual installation must explicitly require logout"
+identity = json.loads((app / "Contents/Resources/RuntimeBuild.json").read_text())
+assert identity["version"] == version
+uuid.UUID(identity["buildID"])
+executable = (app / "Contents/MacOS/CangjieXPreview").read_bytes()
+magic, slices = struct.unpack_from(">II", executable)
+assert magic == 0xCAFEBABE and slices == 2, "Expected a two-slice universal executable"
+for index in range(slices):
+    _, _, offset, size, _ = struct.unpack_from(">IIIII", executable, 8 + index * 20)
+    assert identity["buildID"].encode() in executable[offset:offset + size], "Executable slice must embed the matching runtime build identity"
 for file in source_app.rglob("*"):
     if file.is_file():
         delivered = app / file.relative_to(source_app)

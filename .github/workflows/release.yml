@@ -77,6 +77,7 @@ jobs:
           name: CangjieX-${{ steps.release.outputs.version }}-universal
           path: |
             build/migration/release/CangjieX-*.pkg
+            build/migration/release/CangjieX-*.dmg
             build/migration/release/CangjieX-*.sha256
             build/migration/release/build-info.json
           if-no-files-found: error
@@ -94,6 +95,8 @@ jobs:
           gh release create "${TAG_NAME}" \
             "build/migration/release/CangjieX-${VERSION}-universal.pkg" \
             "build/migration/release/CangjieX-${VERSION}-universal.pkg.sha256" \
+            "build/migration/release/CangjieX-${VERSION}-universal.dmg" \
+            "build/migration/release/CangjieX-${VERSION}-universal.dmg.sha256" \
             build/migration/release/build-info.json \
             --verify-tag --target "${GITHUB_SHA}" --draft \
             --title "倉頡星 V${VERSION}" \

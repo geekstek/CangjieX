@@ -58,7 +58,7 @@ class InstallMigrationTests(unittest.TestCase):
         self.assertFalse(self.obsolete.exists())
         self.assertEqual(self.data.read_bytes(), b'{"synthetic":true}')
         self.assertEqual(self.legacy.read_bytes(), b"legacy sentinel")
-        self.assertEqual((self.home / "maintenance-calls").read_text().splitlines(), ["check", "check", "repair"])
+        self.assertEqual((self.home / "maintenance-calls").read_text().splitlines(), ["check", "check", "activate"])
         self.assertEqual(list(self.installed.parent.glob(".cangjiex-update.*")), [])
 
     def test_preflight_refusal_preserves_installed_bundle(self):

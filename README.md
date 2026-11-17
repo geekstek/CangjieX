@@ -35,6 +35,7 @@ Rust 核心目前不含第三方 crate 依賴。原生編譯與共用字典結�
 | **符號與偏好設定** | 可開啟 macOS 系統符號面板，並在偏好設定調整輸入、輸出、候選及提示音。 |
 | **本機處理** | 查表、轉換與排序學習均在本機完成，不需要雲端輸入服務。 |
 | **修復及解除安裝（V2.0.1）** | 在「關於倉頡星」開啟解除安裝確認，可選擇清除設定及學習記錄；另附原生註冊與快取修復工具。 |
+| **升級啟用核對（V2.0.2）** | 原生安裝器先檢查安全狀態，安裝後重啟並核對執行中版本；無法確認時明確要求重新登入。 |
 
 ### 候選排序怎樣學習？
 
@@ -60,6 +61,10 @@ Rust 核心目前不含第三方 crate 依賴。原生編譯與共用字典結�
 注音文校正依照原版規則，一次處理收到文字中的第一個可校正字元；它不會掃描已上屏的文件，也不攔截一般剪貼簿貼上。校正候選中按 Escape 會保留原文。
 
 ## 下載與安裝
+
+V2.0.2 新增原生安裝器：開啟 `.dmg` 內的「倉頡星安裝器」，先完成組字、切換到 ABC 並結束系統設定，再按「安裝並啟用」。安裝期間保持 ABC；只有實際執行版本、構建識別及輸入源啟用都通過核對，才會顯示完成。設定、詞頻、已安裝的 V1 舊版及其他輸入法會保留。
+
+手動 `.pkg` 僅寫入檔案，會明確要求登出並重新登入；看到磁碟版本更新，不代表正在執行的程序已換新。V2.0.0／V2.0.1 的安裝後流程同樣需要重新登入。
 
 **[倉頡星 V2.0.1 已發布](https://github.com/geekstek/CangjieX/releases/tag/v2.0.1)。** [下載 Universal 安裝包](https://github.com/geekstek/CangjieX/releases/download/v2.0.1/CangjieX-2.0.1-universal.pkg)，適用於 Apple Silicon 與 Intel。Release 同時提供 SHA256 校驗檔及建置資訊；公開下載檔案已核對摘要、版本及構建提交。V2.0.0 與 V1.x Release 保留供回退。
 
@@ -101,6 +106,9 @@ app 也附帶原生維護工具，不需要另外安裝 Swift／Rust 工具鏈�
 
 # 修復升級後的舊名稱、舊 Preview 註冊及鍵盤設定的空白項目。
 "$HOME/Library/Input Methods/CangjieXPreview.app/Contents/MacOS/CangjieXMaintenance" repair
+
+# V2.0.2 起：切換 ABC 並結束系統設定後，重啟並核對實際執行版本。
+"$HOME/Library/Input Methods/CangjieXPreview.app/Contents/MacOS/CangjieXMaintenance" activate
 
 # 移除目前使用者的 V2 輸入法及安裝記錄，保留設定與詞頻。
 "$HOME/Library/Input Methods/CangjieXPreview.app/Contents/MacOS/CangjieXMaintenance" uninstall
@@ -156,11 +164,12 @@ make migration-package
 
 輸出位於 `build/migration/release/`：
 
-- `CangjieX-2.0.1-universal.pkg`：目前使用者安裝包。
-- `CangjieX-2.0.1-universal.pkg.sha256`：SHA256 校驗檔。
+- `CangjieX-2.0.2-universal.dmg`：推薦的原生安裝器，檢查、安裝、啟用與執行版本核對。
+- `CangjieX-2.0.2-universal.pkg`：手動安裝包，安裝後需要重新登入。
+- 各自的 `.sha256`：SHA256 校驗檔。
 - `build-info.json`：構建 commit、架構、最低系統版本及簽署狀態。
 
-只做本機開發安裝時可使用 `make migration-preview-install`；先完成組字並切離新版輸入法，結束系統設定。安裝會完整替換 app bundle，防止舊版的語系名稱資源殘留，並呼叫同一套維護工具刷新註冊與快取。原生試打工具可用 `make migration-preview-test-host` 建置。
+只做本機開發安裝時可使用 `make migration-preview-install`；先完成組字並切離新版輸入法，結束系統設定。安裝會完整替換 app bundle，防止舊版的語系名稱資源殘留，並呼叫同一套維護工具刷新註冊、重啟及核對實際執行版本；成功後會切回新版輸入法，無法核對則以未完成狀態結束。原生試打工具可用 `make migration-preview-test-host` 建置。
 
 專案內也可使用 `make migration-preview-status`、`make migration-preview-repair`、`make migration-preview-uninstall`；開發腳本會以 Xcode 工具鏈編譯目前原始碼的維護工具，也適用於尚未附帶工具的舊安裝包。`make migration-maintenance-check` 只操作暫存測試資料，不卸載日常輸入法、不寫入日常設定；它也包含在 `migration-preview-check` 中。
 

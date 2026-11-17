@@ -34,5 +34,5 @@ if [[ -e "${DESTINATION}" ]]; then mv "${DESTINATION}" "${WORK}/previous.app"; f
 mv "${WORK}/CangjieXPreview.app" "${DESTINATION}"
 codesign --verify --strict "${DESTINATION}"
 # The helper stops only the installed V2 executable after checking the input source.
-"${DESTINATION}/Contents/MacOS/CangjieXMaintenance" repair
-echo "Installed only: ${DESTINATION}"
+"${DESTINATION}/Contents/MacOS/CangjieXMaintenance" activate
+echo "Installed and verified active: ${DESTINATION}"

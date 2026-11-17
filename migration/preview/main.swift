@@ -20,4 +20,5 @@ application.setActivationPolicy(.accessory)
 guard let server = IMKServer(name: "io.github.geekstek.inputmethod.CangjieXPreview_Connection", bundleIdentifier: identifier) else {
     fatalError("Could not create the Preview input method server")
 }
-withExtendedLifetime(server) { application.run() }
+let runtime = RuntimeVersionServer(identity: RuntimeBuildIdentity(version: CompiledRuntimeBuild.version, buildID: CompiledRuntimeBuild.buildID))
+withExtendedLifetime((server, runtime)) { application.run() }

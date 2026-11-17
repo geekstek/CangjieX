@@ -5,6 +5,9 @@ PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 HELPER="${PROJECT_DIR}/build/migration/maintenance/CangjieXMaintenance"
 mkdir -p "$(dirname "${HELPER}")"
 xcrun swiftc -swift-version 5 -O -warnings-as-errors -D MAINTENANCE_TOOL -parse-as-library \
+    "${PROJECT_DIR}/migration/preview/RuntimeVersion.swift" \
+    "${PROJECT_DIR}/migration/preview/UpgradeActivation.swift" \
+    "${PROJECT_DIR}/migration/preview/InstallUI.swift" \
     "${PROJECT_DIR}/migration/preview/InputSourceMaintenance.swift" \
     "${PROJECT_DIR}/migration/preview/UninstallUI.swift" \
     -framework AppKit -framework Carbon -framework CoreServices -o "${HELPER}"

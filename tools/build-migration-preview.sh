@@ -28,7 +28,16 @@ cp migration/data/modules-manifest.json "${APP}/Contents/Resources/modules-manif
 cp migration/data/compatibility-manifest.json "${APP}/Contents/Resources/compatibility-manifest.json"
 cp migration/data/LICENSE.KeyKey.txt "${APP}/Contents/Resources/LICENSE.KeyKey.txt"
 cp migration/data/manifest.json "${APP}/Contents/Resources/cangjie-manifest.json"
-sources=(migration/preview/InputSourceMaintenance.swift migration/preview/UninstallUI.swift migration/preview/LegacySettings.swift migration/preview/PreviewSettings.swift migration/swift/EngineSession.swift migration/preview/CompositionSession.swift
+python3 - "${APP}/Contents/Info.plist" "${APP}/Contents/Resources/RuntimeBuild.json" "${OUTPUT_DIR}/CompiledRuntimeBuild.swift" <<'PY'
+import json,plistlib,sys,uuid
+version=plistlib.load(open(sys.argv[1],'rb'))['CFBundleShortVersionString']
+identity={'version':version,'buildID':str(uuid.uuid4())}
+with open(sys.argv[2],'w') as f: json.dump(identity,f);f.write('\n')
+with open(sys.argv[3],'w') as f:
+    f.write('enum CompiledRuntimeBuild { static let version = '+json.dumps(version)+'; static let buildID = '+json.dumps(identity['buildID'])+' }\n')
+PY
+maintenance_sources=(migration/preview/RuntimeVersion.swift migration/preview/UpgradeActivation.swift migration/preview/InstallUI.swift migration/preview/InputSourceMaintenance.swift migration/preview/UninstallUI.swift)
+sources=("${maintenance_sources[@]}" migration/preview/LegacySettings.swift migration/preview/PreviewSettings.swift migration/swift/EngineSession.swift migration/preview/CompositionSession.swift
          migration/preview/CandidateWindow.swift migration/preview/PreviewInputController.swift)
 PREVIEW_ARCHS="${PREVIEW_ARCHS:-$(uname -m)}"
 binaries=()
@@ -48,14 +57,14 @@ for architecture in ${PREVIEW_ARCHS}; do
     xcrun swiftc -target "${architecture}-apple-macosx11.0" -swift-version 5 -O -warnings-as-errors \
     -module-name CangjieXPreview \
     -import-objc-header migration/preview/PreviewBridge.h \
-    "${sources[@]}" migration/preview/main.swift \
+    "${sources[@]}" "${OUTPUT_DIR}/CompiledRuntimeBuild.swift" migration/preview/main.swift \
     -framework AppKit -framework InputMethodKit -framework Carbon \
     -L "${library_dir}" -lcangjiex_core -lsqlite3 \
     -o "${binary}"
     binaries+=("${binary}")
     maintenance_binary="${OUTPUT_DIR}/CangjieXMaintenance-${architecture}"
     xcrun swiftc -target "${architecture}-apple-macosx11.0" -swift-version 5 -O -warnings-as-errors \
-        -D MAINTENANCE_TOOL -parse-as-library migration/preview/InputSourceMaintenance.swift migration/preview/UninstallUI.swift \
+        -D MAINTENANCE_TOOL -parse-as-library "${maintenance_sources[@]}" \
         -framework AppKit -framework Carbon -framework CoreServices -o "${maintenance_binary}"
     maintenance_binaries+=("${maintenance_binary}")
 done

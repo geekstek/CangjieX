@@ -293,12 +293,25 @@ enum InputSourceMaintenance {
         let home = FileManager.default.homeDirectoryForCurrentUser
         let app = appURL(home: home)
         switch command {
+        case "activate":
+            let result = try UpgradeActivation.activateInstalled()
+            print(result.message)
+            guard result.active else { throw Failure(message: result.message) }
         case "verify-uninstall":
             let report = removalVerification(home: home, deleteData: deleteData, catalogHasSource: ownedIDs.contains { !sources($0).isEmpty }, cacheRoot: deleteData ? try privateCacheRoot() : nil)
             print(String(decoding: try JSONEncoder().encode(report), as: UTF8.self))
         case "status":
             try validateApp(app)
             print("已安裝：\(app.path)")
+            if let expected = try? UpgradeActivation.installedIdentity(at: app) {
+                if let live = UpgradeActivation.probeInstalled(at: app), live.identity == expected {
+                    print("已核對正在執行的版本：\(live.identity.version)（PID \(live.pid)）")
+                } else {
+                    print("磁碟版本：\(expected.version)；新版執行狀態尚未確認。請切換到 ABC 後執行 activate，或重新登入。")
+                }
+            } else {
+                print("此安裝版本未提供執行版本驗證；不能只憑檔案版本宣稱升級完成。")
+            }
             for source in sources(identifier) {
                 let name = sourceProperty(source, kTISPropertyLocalizedName) as? String ?? "（空白）"
                 print("系統輸入源名稱：\(name)")
@@ -369,6 +382,9 @@ enum InputSourceMaintenance {
 @main
 struct MaintenanceMain {
     static func main() {
+        if Bundle.main.bundleIdentifier == "io.github.geekstek.cangjiex.installer" {
+            exit(InstallUI.run(bundle: Bundle.main))
+        }
         if CommandLine.arguments == [CommandLine.arguments[0], "uninstall-dialog"] {
             let status = UninstallUI.runDialog()
             UninstallUI.removeTemporaryHelper()

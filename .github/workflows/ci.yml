@@ -26,6 +26,7 @@ jobs:
           name: CangjieX-universal-installer
           path: |
             build/migration/release/CangjieX-*.pkg
+            build/migration/release/CangjieX-*.dmg
             build/migration/release/CangjieX-*.sha256
             build/migration/release/build-info.json
           if-no-files-found: error
