@@ -2,128 +2,100 @@ name: Release
 
 on:
   push:
-    tags:
-      - "v*"
+    tags: ["v2.*"]
   workflow_dispatch:
     inputs:
       version:
-        description: "Release version, for example 1.0.1"
+        description: "Version matching the app Info.plist, for example 2.0.0"
         required: true
         type: string
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  release:
-    name: Build and publish CangjieX.pkg
-    runs-on: macos-latest
-
+  rust:
+    name: Portable Rust core
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: migration/core
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - name: Install pinned toolchain
+        run: |
+          toolchain=$(sed -n 's/^channel = "\([^"]*\)"/\1/p' ../rust-toolchain.toml)
+          rustup toolchain install "$toolchain" --profile minimal --component rustfmt --component clippy
+      - name: Verify core
+        run: |
+          cargo fmt --check
+          cargo test --locked --offline
+          cargo clippy --locked --offline --all-targets -- -D warnings
 
-      - name: Resolve release version
+  release:
+    name: Verify and publish universal Swift/Rust installer
+    needs: rust
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve version
         id: release
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+          EVENT_NAME: ${{ github.event_name }}
         shell: bash
         run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            version="${{ inputs.version }}"
-            version="${version#v}"
-            tag="v${version}"
+          if [[ "${EVENT_NAME}" == workflow_dispatch ]]; then
+            version="${REQUESTED_VERSION#v}"
           else
-            tag="${GITHUB_REF_NAME}"
-            version="${tag#v}"
+            version="${GITHUB_REF_NAME#v}"
           fi
-
-          if [[ ! "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "::error::Release version must use numeric x.y.z format, got '${version}'"
-            exit 1
-          fi
-
+          [[ "${version}" =~ ^2\.[0-9]+\.[0-9]+$ ]] || exit 1
           echo "version=${version}" >>"${GITHUB_OUTPUT}"
-          echo "tag=${tag}" >>"${GITHUB_OUTPUT}"
-
-      - name: Check source patch manifest
-        shell: bash
-        run: make source-patch-check
-
-      - name: Prepare Ruby SQLite dependency
+          echo "tag=v${version}" >>"${GITHUB_OUTPUT}"
+      - name: Install pinned Rust and cross-compile target
         shell: bash
         run: |
-          ruby -e 'require "sqlite3"' >/dev/null 2>&1 || sudo gem install sqlite3 --no-document
-
-      - name: Build, verify, and checksum source package
-        shell: bash
+          make migration-toolchain
+          architecture=$(uname -m)
+          if [[ "${architecture}" == arm64 ]]; then target=x86_64-apple-darwin; else target=aarch64-apple-darwin; fi
+          CARGO_HOME="$PWD/.source/migration/cargo" RUSTUP_HOME="$PWD/.source/migration/rustup" \
+            .source/migration/cargo/bin/rustup target add "${target}"
+      - name: Verify data, original C++ baselines, Rust and native Swift
         run: |
-          make source-checksum VERSION="${{ steps.release.outputs.version }}"
-          shasum -a 256 -c build/source/CangjieX.pkg.sha256
-
-      - name: Upload build logs on failure
-        if: failure()
+          make migration-check
+          make migration-preview-check
+      - name: Build and inspect per-user installer
+        env:
+          EXPECTED_VERSION: ${{ steps.release.outputs.version }}
+        run: make migration-package
+      - name: Preserve verified installer
         uses: actions/upload-artifact@v4
         with:
-          name: CangjieX-release-build-logs
+          name: CangjieX-${{ steps.release.outputs.version }}-universal
           path: |
-            /tmp/CangjieX-upstream-source/source-build.log
-            /tmp/CangjieX-upstream-source/database-cooker.log
-            build/source/components.plist
-            build/source/source-build-info.txt
-          if-no-files-found: ignore
-          retention-days: 14
-
-      - name: Publish GitHub release
+            build/migration/release/CangjieX-*.pkg
+            build/migration/release/CangjieX-*.sha256
+            build/migration/release/build-info.json
+          if-no-files-found: error
+      - name: Publish complete GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG_NAME: ${{ steps.release.outputs.tag }}
           VERSION: ${{ steps.release.outputs.version }}
         shell: bash
         run: |
-          upstream_commit="$(awk '$1 == "#" && $2 == "upstream" { print $3 }' tools/source-patches/manifest.tsv)"
-          release_notes="$(mktemp)"
-          cat >"${release_notes}" <<EOF
-          CangjieX ${VERSION}
-
-          CangjieX / 倉頡星 is an open source Cangjie input method package for modern macOS, built from the open source Yahoo KeyKey source tree.
-
-          Highlights:
-
-              - Universal macOS app: arm64 + x86_64
-              - Cangjie-first source build
-              - Traditional Chinese associated phrase data
-              - Refreshed CangjieX / 倉頡星 app icons and visible branding
-              - Source patch manifest and build provenance are attached
-
-          Upstream source commit:
-
-              ${upstream_commit}
-
-          Build patch manifest:
-
-              manifest.tsv
-
-          Build provenance:
-
-              source-build-info.txt
-
-          SHA256:
-
-              $(cut -d ' ' -f 1 build/source/CangjieX.pkg.sha256)
-
-          Install with:
-
-              sudo installer -pkg CangjieX.pkg -target /
-
-          After installation, log out and back in. Then open System Settings > Keyboard > Text Input > Edit, add CangjieX / 倉頡星 from Chinese input sources, and enable it.
-
-          Note: this CI-built package is unsigned unless the workflow is configured with Developer ID signing and notarization secrets.
-          EOF
-
           if gh release view "${TAG_NAME}" >/dev/null 2>&1; then
-            gh release upload "${TAG_NAME}" build/source/CangjieX.pkg build/source/CangjieX.pkg.sha256 build/source/source-build-info.txt tools/source-patches/manifest.tsv --clobber
-          else
-            gh release create "${TAG_NAME}" build/source/CangjieX.pkg build/source/CangjieX.pkg.sha256 build/source/source-build-info.txt tools/source-patches/manifest.tsv \
-              --target "${GITHUB_SHA}" \
-              --title "CangjieX ${VERSION}" \
-              --notes-file "${release_notes}"
+            echo "Release already exists; refusing to replace published assets." >&2
+            exit 1
           fi
+          gh release create "${TAG_NAME}" \
+            "build/migration/release/CangjieX-${VERSION}-universal.pkg" \
+            "build/migration/release/CangjieX-${VERSION}-universal.pkg.sha256" \
+            build/migration/release/build-info.json \
+            --verify-tag --target "${GITHUB_SHA}" --draft \
+            --title "倉頡星 CangjieX ${VERSION} · Swift / Rust" \
+            --notes-file migration/release/RELEASE-NOTES.md
+          gh release edit "${TAG_NAME}" --draft=false --latest

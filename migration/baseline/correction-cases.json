@@ -1,0 +1,767 @@
+{
+  "schema_version": 1,
+  "profile_flags": 2048,
+  "legacy_mode": "--correction",
+  "source_sha256": {
+    "ModulePackages/OVAFBopomofoCorrection/OVAFBopomofoCorrection.cpp": "4e68f5406abe5311bf354e63a7eccfeff6235947861b69d7eaeb5f5c1d2b939c",
+    "Frameworks/PlainVanilla/Headers/PVCandidate.h": "1415bcbb44aa96e841ee9eccf10fc17957ff2850a5086643a6ad45883050221b"
+  },
+  "cases": [
+    {
+      "id": "correction_number",
+      "description": "correction number",
+      "events": [
+        "text:ㄅ",
+        "2"
+      ],
+      "expected": [
+        {
+          "event": "text:ㄅ",
+          "handled": true,
+          "reading": "",
+          "committed": "",
+          "beep": false,
+          "visible": true,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [
+            "不",
+            "吧",
+            "波",
+            "別",
+            "罷"
+          ],
+          "composing": "ㄅ",
+          "cursor": 0
+        },
+        {
+          "event": "2",
+          "handled": true,
+          "reading": "",
+          "committed": "吧",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [],
+          "composing": "",
+          "cursor": 0
+        }
+      ]
+    },
+    {
+      "id": "correction_highlight",
+      "description": "correction highlight",
+      "events": [
+        "text:ㄇ",
+        "down",
+        "return"
+      ],
+      "expected": [
+        {
+          "event": "text:ㄇ",
+          "handled": true,
+          "reading": "",
+          "committed": "",
+          "beep": false,
+          "visible": true,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [
+            "嗎",
+            "們",
+            "嘛",
+            "咩",
+            "麼",
+            "妹",
+            "媽"
+          ],
+          "composing": "ㄇ",
+          "cursor": 0
+        },
+        {
+          "event": "down",
+          "handled": true,
+          "reading": "",
+          "committed": "",
+          "beep": false,
+          "visible": true,
+          "page": 0,
+          "highlight": 1,
+          "candidates": [
+            "嗎",
+            "們",
+            "嘛",
+            "咩",
+            "麼",
+            "妹",
+            "媽"
+          ],
+          "composing": "ㄇ",
+          "cursor": 0
+        },
+        {
+          "event": "return",
+          "handled": true,
+          "reading": "",
+          "committed": "們",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [],
+          "composing": "",
+          "cursor": 0
+        }
+      ]
+    },
+    {
+      "id": "correction_cancel",
+      "description": "correction cancel",
+      "events": [
+        "text:𨈍ㄅㄇ",
+        "escape"
+      ],
+      "expected": [
+        {
+          "event": "text:𨈍ㄅㄇ",
+          "handled": true,
+          "reading": "",
+          "committed": "",
+          "beep": false,
+          "visible": true,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [
+            "不",
+            "吧",
+            "波",
+            "別",
+            "罷"
+          ],
+          "composing": "𨈍ㄅㄇ",
+          "cursor": 1
+        },
+        {
+          "event": "escape",
+          "handled": true,
+          "reading": "",
+          "committed": "𨈍ㄅㄇ",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [],
+          "composing": "",
+          "cursor": 0
+        }
+      ]
+    },
+    {
+      "id": "correction_first_only",
+      "description": "correction first only",
+      "events": [
+        "text:𨈍ㄅㄇ",
+        "1"
+      ],
+      "expected": [
+        {
+          "event": "text:𨈍ㄅㄇ",
+          "handled": true,
+          "reading": "",
+          "committed": "",
+          "beep": false,
+          "visible": true,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [
+            "不",
+            "吧",
+            "波",
+            "別",
+            "罷"
+          ],
+          "composing": "𨈍ㄅㄇ",
+          "cursor": 1
+        },
+        {
+          "event": "1",
+          "handled": true,
+          "reading": "",
+          "committed": "𨈍不ㄇ",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [],
+          "composing": "",
+          "cursor": 0
+        }
+      ]
+    },
+    {
+      "id": "correction_space",
+      "description": "correction space",
+      "events": [
+        "text:ㄅ",
+        "space",
+        "1"
+      ],
+      "expected": [
+        {
+          "event": "text:ㄅ",
+          "handled": true,
+          "reading": "",
+          "committed": "",
+          "beep": false,
+          "visible": true,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [
+            "不",
+            "吧",
+            "波",
+            "別",
+            "罷"
+          ],
+          "composing": "ㄅ",
+          "cursor": 0
+        },
+        {
+          "event": "space",
+          "handled": true,
+          "reading": "",
+          "committed": "",
+          "beep": true,
+          "visible": true,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [
+            "不",
+            "吧",
+            "波",
+            "別",
+            "罷"
+          ],
+          "composing": "ㄅ",
+          "cursor": 0
+        },
+        {
+          "event": "1",
+          "handled": true,
+          "reading": "",
+          "committed": "不",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [],
+          "composing": "",
+          "cursor": 0
+        }
+      ]
+    },
+    {
+      "id": "correction_invalid",
+      "description": "correction invalid",
+      "events": [
+        "text:ㄅ",
+        "9",
+        "backspace",
+        "a",
+        "escape"
+      ],
+      "expected": [
+        {
+          "event": "text:ㄅ",
+          "handled": true,
+          "reading": "",
+          "committed": "",
+          "beep": false,
+          "visible": true,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [
+            "不",
+            "吧",
+            "波",
+            "別",
+            "罷"
+          ],
+          "composing": "ㄅ",
+          "cursor": 0
+        },
+        {
+          "event": "9",
+          "handled": true,
+          "reading": "",
+          "committed": "",
+          "beep": true,
+          "visible": true,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [
+            "不",
+            "吧",
+            "波",
+            "別",
+            "罷"
+          ],
+          "composing": "ㄅ",
+          "cursor": 0
+        },
+        {
+          "event": "backspace",
+          "handled": true,
+          "reading": "",
+          "committed": "",
+          "beep": true,
+          "visible": true,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [
+            "不",
+            "吧",
+            "波",
+            "別",
+            "罷"
+          ],
+          "composing": "ㄅ",
+          "cursor": 0
+        },
+        {
+          "event": "a",
+          "handled": true,
+          "reading": "",
+          "committed": "",
+          "beep": true,
+          "visible": true,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [
+            "不",
+            "吧",
+            "波",
+            "別",
+            "罷"
+          ],
+          "composing": "ㄅ",
+          "cursor": 0
+        },
+        {
+          "event": "escape",
+          "handled": true,
+          "reading": "",
+          "committed": "ㄅ",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [],
+          "composing": "",
+          "cursor": 0
+        }
+      ]
+    },
+    {
+      "id": "correction_boundary",
+      "description": "correction boundary",
+      "events": [
+        "text:ㄅ",
+        "up",
+        "next",
+        "previous",
+        "return"
+      ],
+      "expected": [
+        {
+          "event": "text:ㄅ",
+          "handled": true,
+          "reading": "",
+          "committed": "",
+          "beep": false,
+          "visible": true,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [
+            "不",
+            "吧",
+            "波",
+            "別",
+            "罷"
+          ],
+          "composing": "ㄅ",
+          "cursor": 0
+        },
+        {
+          "event": "up",
+          "handled": true,
+          "reading": "",
+          "committed": "",
+          "beep": true,
+          "visible": true,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [
+            "不",
+            "吧",
+            "波",
+            "別",
+            "罷"
+          ],
+          "composing": "ㄅ",
+          "cursor": 0
+        },
+        {
+          "event": "next",
+          "handled": true,
+          "reading": "",
+          "committed": "",
+          "beep": true,
+          "visible": true,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [
+            "不",
+            "吧",
+            "波",
+            "別",
+            "罷"
+          ],
+          "composing": "ㄅ",
+          "cursor": 0
+        },
+        {
+          "event": "previous",
+          "handled": true,
+          "reading": "",
+          "committed": "",
+          "beep": true,
+          "visible": true,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [
+            "不",
+            "吧",
+            "波",
+            "別",
+            "罷"
+          ],
+          "composing": "ㄅ",
+          "cursor": 0
+        },
+        {
+          "event": "return",
+          "handled": true,
+          "reading": "",
+          "committed": "不",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [],
+          "composing": "",
+          "cursor": 0
+        }
+      ]
+    },
+    {
+      "id": "correction_multi_key",
+      "description": "correction multi key",
+      "events": [
+        "text:ㄅㄅ",
+        "1"
+      ],
+      "expected": [
+        {
+          "event": "text:ㄅㄅ",
+          "handled": true,
+          "reading": "",
+          "committed": "",
+          "beep": false,
+          "visible": true,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [
+            "不",
+            "吧",
+            "波",
+            "別",
+            "罷"
+          ],
+          "composing": "ㄅㄅ",
+          "cursor": 0
+        },
+        {
+          "event": "1",
+          "handled": true,
+          "reading": "",
+          "committed": "不ㄅ",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [],
+          "composing": "",
+          "cursor": 0
+        }
+      ]
+    },
+    {
+      "id": "correction_no_match",
+      "description": "correction no match",
+      "events": [
+        "text:中文𨈍ASCII",
+        "text:ㄅ",
+        "escape"
+      ],
+      "expected": [
+        {
+          "event": "text:中文𨈍ASCII",
+          "handled": true,
+          "reading": "",
+          "committed": "中文𨈍ASCII",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [],
+          "composing": "",
+          "cursor": 0
+        },
+        {
+          "event": "text:ㄅ",
+          "handled": true,
+          "reading": "",
+          "committed": "",
+          "beep": false,
+          "visible": true,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [
+            "不",
+            "吧",
+            "波",
+            "別",
+            "罷"
+          ],
+          "composing": "ㄅ",
+          "cursor": 0
+        },
+        {
+          "event": "escape",
+          "handled": true,
+          "reading": "",
+          "committed": "ㄅ",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [],
+          "composing": "",
+          "cursor": 0
+        }
+      ]
+    },
+    {
+      "id": "correction_pending_direct",
+      "description": "correction pending direct",
+      "events": [
+        "text:ㄅ",
+        "text:ㄇ",
+        "return"
+      ],
+      "expected": [
+        {
+          "event": "text:ㄅ",
+          "handled": true,
+          "reading": "",
+          "committed": "",
+          "beep": false,
+          "visible": true,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [
+            "不",
+            "吧",
+            "波",
+            "別",
+            "罷"
+          ],
+          "composing": "ㄅ",
+          "cursor": 0
+        },
+        {
+          "event": "text:ㄇ",
+          "handled": false,
+          "reading": "",
+          "committed": "",
+          "beep": false,
+          "visible": true,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [
+            "不",
+            "吧",
+            "波",
+            "別",
+            "罷"
+          ],
+          "composing": "ㄅ",
+          "cursor": 0
+        },
+        {
+          "event": "return",
+          "handled": true,
+          "reading": "",
+          "committed": "不",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [],
+          "composing": "",
+          "cursor": 0
+        }
+      ]
+    },
+    {
+      "id": "correction_shift",
+      "description": "correction shift",
+      "events": [
+        "text:ㄅ",
+        "shift:!",
+        "cmd:a",
+        "escape"
+      ],
+      "expected": [
+        {
+          "event": "text:ㄅ",
+          "handled": true,
+          "reading": "",
+          "committed": "",
+          "beep": false,
+          "visible": true,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [
+            "不",
+            "吧",
+            "波",
+            "別",
+            "罷"
+          ],
+          "composing": "ㄅ",
+          "cursor": 0
+        },
+        {
+          "event": "shift:!",
+          "handled": true,
+          "reading": "",
+          "committed": "",
+          "beep": true,
+          "visible": true,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [
+            "不",
+            "吧",
+            "波",
+            "別",
+            "罷"
+          ],
+          "composing": "ㄅ",
+          "cursor": 0
+        },
+        {
+          "event": "cmd:a",
+          "handled": true,
+          "reading": "",
+          "committed": "",
+          "beep": true,
+          "visible": true,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [
+            "不",
+            "吧",
+            "波",
+            "別",
+            "罷"
+          ],
+          "composing": "ㄅ",
+          "cursor": 0
+        },
+        {
+          "event": "escape",
+          "handled": true,
+          "reading": "",
+          "committed": "ㄅ",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [],
+          "composing": "",
+          "cursor": 0
+        }
+      ]
+    },
+    {
+      "id": "correction_empty",
+      "description": "correction empty",
+      "events": [
+        "text:",
+        "text:ㄅ",
+        "return"
+      ],
+      "expected": [
+        {
+          "event": "text:",
+          "handled": false,
+          "reading": "",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [],
+          "composing": "",
+          "cursor": 0
+        },
+        {
+          "event": "text:ㄅ",
+          "handled": true,
+          "reading": "",
+          "committed": "",
+          "beep": false,
+          "visible": true,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [
+            "不",
+            "吧",
+            "波",
+            "別",
+            "罷"
+          ],
+          "composing": "ㄅ",
+          "cursor": 0
+        },
+        {
+          "event": "return",
+          "handled": true,
+          "reading": "",
+          "committed": "不",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [],
+          "composing": "",
+          "cursor": 0
+        }
+      ]
+    }
+  ]
+}

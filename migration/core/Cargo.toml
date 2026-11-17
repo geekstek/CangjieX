@@ -1,0 +1,12 @@
+[package]
+name = "cangjiex-core"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "BSD-3-Clause"
+
+[lib]
+crate-type = ["rlib", "staticlib"]
+
+[lints.rust]
+unsafe_op_in_unsafe_fn = "deny"

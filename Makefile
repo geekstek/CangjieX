@@ -6,6 +6,10 @@ SOURCE_BUILD_INFO := $(SOURCE_BUILD_DIR)/source-build-info.txt
 VERSION ?= 1.0.0
 
 .PHONY: brand-assets build verify check checksum source-patch-check source-app source-build source-verify source-checksum probe-source doctor uninstall clean
+.PHONY: migration-toolchain migration-extract migration-extract-compatibility migration-check
+.PHONY: migration-extract-modules
+.PHONY: migration-preview migration-preview-check migration-preview-install migration-preview-test-host
+.PHONY: migration-package
 
 brand-assets:
 	mkdir -p build/tools
@@ -59,3 +63,37 @@ clean:
 			echo "Moved build to $$stale_build_dir"; \
 		fi \
 	fi
+
+migration-toolchain:
+	bash tools/setup-migration-rust.sh
+
+migration-extract:
+	@source_root="$$(bash tools/prepare-migration-source.sh)" && \
+	ruby tools/extract-cangjie.rb "$$source_root/DataTables/cj-ext.cin" migration/data
+
+migration-extract-modules:
+	@source_root="$$(bash tools/prepare-migration-source.sh)" && \
+	ruby tools/extract-cangjie.rb --modules "$$source_root" migration/data
+
+migration-check:
+	bash tools/check-migration.sh
+
+migration-preview:
+	bash tools/build-migration-preview.sh
+
+migration-package:
+	bash tools/build-migration-package.sh
+
+migration-preview-check:
+	bash tools/build-migration-preview.sh --test
+
+migration-preview-install: migration-preview
+	bash tools/install-migration-preview.sh
+
+migration-preview-test-host:
+	bash tools/build-migration-preview.sh --test-host
+
+migration-extract-compatibility:
+	@source_root="$$(bash tools/prepare-migration-source.sh)" && \
+	ruby tools/extract-migration-compatibility.rb "$$source_root" \
+		".source/Yahoo! KeyKey.app/Contents/Resources/Databases/KeyKey.db" migration/data

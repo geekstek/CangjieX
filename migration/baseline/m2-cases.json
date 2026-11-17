@@ -1,0 +1,1531 @@
+{
+  "schema_version": 1,
+  "reference_profile_from": "cases.json",
+  "cases": [
+    {
+      "id": "m2_candidate_backspace",
+      "description": "候选中退格关闭面板并删除最后字根，再次查表可选字。",
+      "events": [
+        "a",
+        "b",
+        "space",
+        "backspace",
+        "space",
+        "2"
+      ],
+      "expected": [
+        {
+          "event": "a",
+          "handled": true,
+          "reading": "日",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "b",
+          "handled": true,
+          "reading": "日月",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "space",
+          "handled": true,
+          "reading": "日月",
+          "committed": "",
+          "beep": false,
+          "visible": true,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [
+            "明",
+            "冐"
+          ]
+        },
+        {
+          "event": "backspace",
+          "handled": true,
+          "reading": "日",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "space",
+          "handled": true,
+          "reading": "日",
+          "committed": "",
+          "beep": false,
+          "visible": true,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [
+            "日",
+            "曰"
+          ]
+        },
+        {
+          "event": "2",
+          "handled": true,
+          "reading": "",
+          "committed": "曰",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        }
+      ]
+    },
+    {
+      "id": "m2_space_ignores_highlight",
+      "description": "单页空格选择首候选，不选择当前高亮。",
+      "events": [
+        "a",
+        "space",
+        "down",
+        "space"
+      ],
+      "expected": [
+        {
+          "event": "a",
+          "handled": true,
+          "reading": "日",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "space",
+          "handled": true,
+          "reading": "日",
+          "committed": "",
+          "beep": false,
+          "visible": true,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [
+            "日",
+            "曰"
+          ]
+        },
+        {
+          "event": "down",
+          "handled": true,
+          "reading": "日",
+          "committed": "",
+          "beep": false,
+          "visible": true,
+          "page": 0,
+          "highlight": 1,
+          "candidates": [
+            "日",
+            "曰"
+          ]
+        },
+        {
+          "event": "space",
+          "handled": true,
+          "reading": "",
+          "committed": "日",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        }
+      ]
+    },
+    {
+      "id": "m2_candidate_and_punctuation",
+      "description": "同一事件可提交当前候选和标点，两个提交都保留。",
+      "events": [
+        "a",
+        "space",
+        ","
+      ],
+      "expected": [
+        {
+          "event": "a",
+          "handled": true,
+          "reading": "日",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "space",
+          "handled": true,
+          "reading": "日",
+          "committed": "",
+          "beep": false,
+          "visible": true,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [
+            "日",
+            "曰"
+          ]
+        },
+        {
+          "event": ",",
+          "handled": true,
+          "reading": "",
+          "committed": "日，",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        }
+      ]
+    },
+    {
+      "id": "m2_page_wrap",
+      "description": "前后翻页允许循环，选字对应当前页。",
+      "events": [
+        "d",
+        "d",
+        "p",
+        "space",
+        "next",
+        "next",
+        "previous",
+        "1"
+      ],
+      "expected": [
+        {
+          "event": "d",
+          "handled": true,
+          "reading": "木",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "d",
+          "handled": true,
+          "reading": "木木",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "p",
+          "handled": true,
+          "reading": "木木心",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "space",
+          "handled": true,
+          "reading": "木木心",
+          "committed": "",
+          "beep": false,
+          "visible": true,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [
+            "懋",
+            "𢡟",
+            "𢛓",
+            "󼠧",
+            "󼄶",
+            "󼄳",
+            "󻻤",
+            "󻳚",
+            "󻳖",
+            "󻫽",
+            "𢠖",
+            "𢠘",
+            "𢣬"
+          ]
+        },
+        {
+          "event": "next",
+          "handled": true,
+          "reading": "木木心",
+          "committed": "",
+          "beep": false,
+          "visible": true,
+          "page": 1,
+          "highlight": 0,
+          "candidates": [
+            "懋",
+            "𢡟",
+            "𢛓",
+            "󼠧",
+            "󼄶",
+            "󼄳",
+            "󻻤",
+            "󻳚",
+            "󻳖",
+            "󻫽",
+            "𢠖",
+            "𢠘",
+            "𢣬"
+          ]
+        },
+        {
+          "event": "next",
+          "handled": true,
+          "reading": "木木心",
+          "committed": "",
+          "beep": false,
+          "visible": true,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [
+            "懋",
+            "𢡟",
+            "𢛓",
+            "󼠧",
+            "󼄶",
+            "󼄳",
+            "󻻤",
+            "󻳚",
+            "󻳖",
+            "󻫽",
+            "𢠖",
+            "𢠘",
+            "𢣬"
+          ]
+        },
+        {
+          "event": "previous",
+          "handled": true,
+          "reading": "木木心",
+          "committed": "",
+          "beep": false,
+          "visible": true,
+          "page": 1,
+          "highlight": 0,
+          "candidates": [
+            "懋",
+            "𢡟",
+            "𢛓",
+            "󼠧",
+            "󼄶",
+            "󼄳",
+            "󻻤",
+            "󻳚",
+            "󻳖",
+            "󻫽",
+            "𢠖",
+            "𢠘",
+            "𢣬"
+          ]
+        },
+        {
+          "event": "1",
+          "handled": true,
+          "reading": "",
+          "committed": "󻫽",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        }
+      ]
+    },
+    {
+      "id": "m2_highlight_page_wrap",
+      "description": "高亮在第一页开头向上跳到末页末项，向下回首页。",
+      "events": [
+        "d",
+        "d",
+        "p",
+        "space",
+        "up",
+        "down",
+        "1"
+      ],
+      "expected": [
+        {
+          "event": "d",
+          "handled": true,
+          "reading": "木",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "d",
+          "handled": true,
+          "reading": "木木",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "p",
+          "handled": true,
+          "reading": "木木心",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "space",
+          "handled": true,
+          "reading": "木木心",
+          "committed": "",
+          "beep": false,
+          "visible": true,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [
+            "懋",
+            "𢡟",
+            "𢛓",
+            "󼠧",
+            "󼄶",
+            "󼄳",
+            "󻻤",
+            "󻳚",
+            "󻳖",
+            "󻫽",
+            "𢠖",
+            "𢠘",
+            "𢣬"
+          ]
+        },
+        {
+          "event": "up",
+          "handled": true,
+          "reading": "木木心",
+          "committed": "",
+          "beep": false,
+          "visible": true,
+          "page": 1,
+          "highlight": 3,
+          "candidates": [
+            "懋",
+            "𢡟",
+            "𢛓",
+            "󼠧",
+            "󼄶",
+            "󼄳",
+            "󻻤",
+            "󻳚",
+            "󻳖",
+            "󻫽",
+            "𢠖",
+            "𢠘",
+            "𢣬"
+          ]
+        },
+        {
+          "event": "down",
+          "handled": true,
+          "reading": "木木心",
+          "committed": "",
+          "beep": false,
+          "visible": true,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [
+            "懋",
+            "𢡟",
+            "𢛓",
+            "󼠧",
+            "󼄶",
+            "󼄳",
+            "󻻤",
+            "󻳚",
+            "󻳖",
+            "󻫽",
+            "𢠖",
+            "𢠘",
+            "𢣬"
+          ]
+        },
+        {
+          "event": "1",
+          "handled": true,
+          "reading": "",
+          "committed": "懋",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        }
+      ]
+    },
+    {
+      "id": "m2_highlight_boundary",
+      "description": "单页方向键到边界时响铃并保留高亮。",
+      "events": [
+        "a",
+        "space",
+        "up",
+        "down",
+        "down",
+        "return"
+      ],
+      "expected": [
+        {
+          "event": "a",
+          "handled": true,
+          "reading": "日",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "space",
+          "handled": true,
+          "reading": "日",
+          "committed": "",
+          "beep": false,
+          "visible": true,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [
+            "日",
+            "曰"
+          ]
+        },
+        {
+          "event": "up",
+          "handled": true,
+          "reading": "日",
+          "committed": "",
+          "beep": true,
+          "visible": true,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [
+            "日",
+            "曰"
+          ]
+        },
+        {
+          "event": "down",
+          "handled": true,
+          "reading": "日",
+          "committed": "",
+          "beep": false,
+          "visible": true,
+          "page": 0,
+          "highlight": 1,
+          "candidates": [
+            "日",
+            "曰"
+          ]
+        },
+        {
+          "event": "down",
+          "handled": true,
+          "reading": "日",
+          "committed": "",
+          "beep": true,
+          "visible": true,
+          "page": 0,
+          "highlight": 1,
+          "candidates": [
+            "日",
+            "曰"
+          ]
+        },
+        {
+          "event": "return",
+          "handled": true,
+          "reading": "",
+          "committed": "曰",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        }
+      ]
+    },
+    {
+      "id": "m2_question_wildcard",
+      "description": "问号匹配一个字根，候选顺序保留原版查询结果。",
+      "events": [
+        "r",
+        "v",
+        "b",
+        "c",
+        "?",
+        "space",
+        "2"
+      ],
+      "expected": [
+        {
+          "event": "r",
+          "handled": true,
+          "reading": "口",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "v",
+          "handled": true,
+          "reading": "口女",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "b",
+          "handled": true,
+          "reading": "口女月",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "c",
+          "handled": true,
+          "reading": "口女月金",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "?",
+          "handled": true,
+          "reading": "口女月金？",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "space",
+          "handled": true,
+          "reading": "口女月金？",
+          "committed": "",
+          "beep": false,
+          "visible": true,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [
+            "𨆎",
+            "𨈍"
+          ]
+        },
+        {
+          "event": "2",
+          "handled": true,
+          "reading": "",
+          "committed": "𨈍",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        }
+      ]
+    },
+    {
+      "id": "m2_star_wildcard",
+      "description": "星号匹配零个或多个字根。",
+      "events": [
+        "r",
+        "v",
+        "b",
+        "c",
+        "*",
+        "space",
+        "2"
+      ],
+      "expected": [
+        {
+          "event": "r",
+          "handled": true,
+          "reading": "口",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "v",
+          "handled": true,
+          "reading": "口女",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "b",
+          "handled": true,
+          "reading": "口女月",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "c",
+          "handled": true,
+          "reading": "口女月金",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "*",
+          "handled": true,
+          "reading": "口女月金＊",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "space",
+          "handled": true,
+          "reading": "口女月金＊",
+          "committed": "",
+          "beep": false,
+          "visible": true,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [
+            "𨆎",
+            "𨈍"
+          ]
+        },
+        {
+          "event": "2",
+          "handled": true,
+          "reading": "",
+          "committed": "𨈍",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        }
+      ]
+    },
+    {
+      "id": "m2_wildcard_order",
+      "description": "万用字元查询保留源表顺序及重复候选。",
+      "events": [
+        "a",
+        "?",
+        "space",
+        "1"
+      ],
+      "expected": [
+        {
+          "event": "a",
+          "handled": true,
+          "reading": "日",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "?",
+          "handled": true,
+          "reading": "日？",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "space",
+          "handled": true,
+          "reading": "日？",
+          "committed": "",
+          "beep": false,
+          "visible": true,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [
+            "昌",
+            "昍",
+            "明",
+            "杲",
+            "炅",
+            "炚",
+            "早",
+            "旲",
+            "旦",
+            "門",
+            "巴",
+            "旵",
+            "艮",
+            "妟",
+            "曱",
+            "冐",
+            "𠕖",
+            "󽲉",
+            "𣌢",
+            "旪",
+            "󽸉",
+            "󽸃",
+            "𣄻",
+            "𠃛",
+            "𢀳",
+            "𣅓",
+            "圼",
+            "󽸈",
+            "㫐",
+            "𢗭",
+            "𣅵",
+            "㫒",
+            "𣅋",
+            "𣅁",
+            "𣅊",
+            "𣌦",
+            "𠁣",
+            "󽲍",
+            "𠃜",
+            "𣅃",
+            "𣅂",
+            "󽲖",
+            "󽱂",
+            "旷"
+          ]
+        },
+        {
+          "event": "1",
+          "handled": true,
+          "reading": "",
+          "committed": "昌",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        }
+      ]
+    },
+    {
+      "id": "m2_literal_wildcards",
+      "description": "单独输入星号和问号时作为标点处理。",
+      "events": [
+        "*",
+        "2",
+        "?"
+      ],
+      "expected": [
+        {
+          "event": "*",
+          "handled": true,
+          "reading": "＊",
+          "committed": "",
+          "beep": false,
+          "visible": true,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [
+            "＊",
+            "†",
+            "‡",
+            "§"
+          ]
+        },
+        {
+          "event": "2",
+          "handled": true,
+          "reading": "",
+          "committed": "†",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "?",
+          "handled": true,
+          "reading": "",
+          "committed": "？",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        }
+      ]
+    },
+    {
+      "id": "m2_consecutive_commits",
+      "description": "连续两个五码单候选输入不残留上次提交。",
+      "events": [
+        "m",
+        "f",
+        "m",
+        "f",
+        "f",
+        "space",
+        "r",
+        "v",
+        "b",
+        "c",
+        "e",
+        "space"
+      ],
+      "expected": [
+        {
+          "event": "m",
+          "handled": true,
+          "reading": "一",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "f",
+          "handled": true,
+          "reading": "一火",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "m",
+          "handled": true,
+          "reading": "一火一",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "f",
+          "handled": true,
+          "reading": "一火一火",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "f",
+          "handled": true,
+          "reading": "一火一火火",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "space",
+          "handled": true,
+          "reading": "",
+          "committed": "厵",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "r",
+          "handled": true,
+          "reading": "口",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "v",
+          "handled": true,
+          "reading": "口女",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "b",
+          "handled": true,
+          "reading": "口女月",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "c",
+          "handled": true,
+          "reading": "口女月金",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "e",
+          "handled": true,
+          "reading": "口女月金水",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "space",
+          "handled": true,
+          "reading": "",
+          "committed": "𨈍",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        }
+      ]
+    },
+    {
+      "id": "m2_recover_invalid_selection",
+      "description": "末页无效数字不清空候选，之后仍可正确选字。",
+      "events": [
+        "d",
+        "d",
+        "p",
+        "space",
+        "next",
+        "9",
+        "1"
+      ],
+      "expected": [
+        {
+          "event": "d",
+          "handled": true,
+          "reading": "木",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "d",
+          "handled": true,
+          "reading": "木木",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "p",
+          "handled": true,
+          "reading": "木木心",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "space",
+          "handled": true,
+          "reading": "木木心",
+          "committed": "",
+          "beep": false,
+          "visible": true,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [
+            "懋",
+            "𢡟",
+            "𢛓",
+            "󼠧",
+            "󼄶",
+            "󼄳",
+            "󻻤",
+            "󻳚",
+            "󻳖",
+            "󻫽",
+            "𢠖",
+            "𢠘",
+            "𢣬"
+          ]
+        },
+        {
+          "event": "next",
+          "handled": true,
+          "reading": "木木心",
+          "committed": "",
+          "beep": false,
+          "visible": true,
+          "page": 1,
+          "highlight": 0,
+          "candidates": [
+            "懋",
+            "𢡟",
+            "𢛓",
+            "󼠧",
+            "󼄶",
+            "󼄳",
+            "󻻤",
+            "󻳚",
+            "󻳖",
+            "󻫽",
+            "𢠖",
+            "𢠘",
+            "𢣬"
+          ]
+        },
+        {
+          "event": "9",
+          "handled": true,
+          "reading": "木木心",
+          "committed": "",
+          "beep": true,
+          "visible": true,
+          "page": 1,
+          "highlight": 0,
+          "candidates": [
+            "懋",
+            "𢡟",
+            "𢛓",
+            "󼠧",
+            "󼄶",
+            "󼄳",
+            "󻻤",
+            "󻳚",
+            "󻳖",
+            "󻫽",
+            "𢠖",
+            "𢠘",
+            "𢣬"
+          ]
+        },
+        {
+          "event": "1",
+          "handled": true,
+          "reading": "",
+          "committed": "󻫽",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        }
+      ]
+    },
+    {
+      "id": "m2_recover_composition_error",
+      "description": "无候选清空后可立即重新输入。",
+      "events": [
+        "a",
+        "a",
+        "a",
+        "a",
+        "a",
+        "space",
+        "a",
+        "space",
+        "2"
+      ],
+      "expected": [
+        {
+          "event": "a",
+          "handled": true,
+          "reading": "日",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "a",
+          "handled": true,
+          "reading": "日日",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "a",
+          "handled": true,
+          "reading": "日日日",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "a",
+          "handled": true,
+          "reading": "日日日日",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "a",
+          "handled": true,
+          "reading": "日日日日日",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "space",
+          "handled": true,
+          "reading": "",
+          "committed": "",
+          "beep": true,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "a",
+          "handled": true,
+          "reading": "日",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "space",
+          "handled": true,
+          "reading": "日",
+          "committed": "",
+          "beep": false,
+          "visible": true,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [
+            "日",
+            "曰"
+          ]
+        },
+        {
+          "event": "2",
+          "handled": true,
+          "reading": "",
+          "committed": "曰",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        }
+      ]
+    },
+    {
+      "id": "m2_candidate_to_candidate",
+      "description": "输入标点时提交当前字，并保留新标点候选。",
+      "events": [
+        "a",
+        "space",
+        "[",
+        "2"
+      ],
+      "expected": [
+        {
+          "event": "a",
+          "handled": true,
+          "reading": "日",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "space",
+          "handled": true,
+          "reading": "日",
+          "committed": "",
+          "beep": false,
+          "visible": true,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [
+            "日",
+            "曰"
+          ]
+        },
+        {
+          "event": "[",
+          "handled": true,
+          "reading": "「",
+          "committed": "日",
+          "beep": false,
+          "visible": true,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [
+            "「",
+            "『",
+            "《",
+            "〈",
+            "〔"
+          ]
+        },
+        {
+          "event": "2",
+          "handled": true,
+          "reading": "",
+          "committed": "『",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        }
+      ]
+    },
+    {
+      "id": "m2_shift_paging",
+      "description": "Shift 大于号和小于号用于候选翻页。",
+      "events": [
+        "d",
+        "d",
+        "p",
+        "space",
+        "shift:>",
+        "shift:<",
+        "return"
+      ],
+      "expected": [
+        {
+          "event": "d",
+          "handled": true,
+          "reading": "木",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "d",
+          "handled": true,
+          "reading": "木木",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "p",
+          "handled": true,
+          "reading": "木木心",
+          "committed": "",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        },
+        {
+          "event": "space",
+          "handled": true,
+          "reading": "木木心",
+          "committed": "",
+          "beep": false,
+          "visible": true,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [
+            "懋",
+            "𢡟",
+            "𢛓",
+            "󼠧",
+            "󼄶",
+            "󼄳",
+            "󻻤",
+            "󻳚",
+            "󻳖",
+            "󻫽",
+            "𢠖",
+            "𢠘",
+            "𢣬"
+          ]
+        },
+        {
+          "event": "shift:>",
+          "handled": true,
+          "reading": "木木心",
+          "committed": "",
+          "beep": false,
+          "visible": true,
+          "page": 1,
+          "highlight": 0,
+          "candidates": [
+            "懋",
+            "𢡟",
+            "𢛓",
+            "󼠧",
+            "󼄶",
+            "󼄳",
+            "󻻤",
+            "󻳚",
+            "󻳖",
+            "󻫽",
+            "𢠖",
+            "𢠘",
+            "𢣬"
+          ]
+        },
+        {
+          "event": "shift:<",
+          "handled": true,
+          "reading": "木木心",
+          "committed": "",
+          "beep": false,
+          "visible": true,
+          "page": 0,
+          "highlight": 0,
+          "candidates": [
+            "懋",
+            "𢡟",
+            "𢛓",
+            "󼠧",
+            "󼄶",
+            "󼄳",
+            "󻻤",
+            "󻳚",
+            "󻳖",
+            "󻫽",
+            "𢠖",
+            "𢠘",
+            "𢣬"
+          ]
+        },
+        {
+          "event": "return",
+          "handled": true,
+          "reading": "",
+          "committed": "懋",
+          "beep": false,
+          "visible": false,
+          "page": 0,
+          "highlight": 0,
+          "candidates": []
+        }
+      ]
+    }
+  ]
+}

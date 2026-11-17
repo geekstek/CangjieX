@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "upstream_repository": "https://github.com/YahooArchive/KeyKey",
+  "upstream_commit": "81e05f070c070af65cac21e8da28ca4ff2d58905",
+  "source_path": "YahooKeyKey-Source-1.1.2528/DataTables/cj-ext.cin",
+  "source_url": "https://raw.githubusercontent.com/YahooArchive/KeyKey/81e05f070c070af65cac21e8da28ca4ff2d58905/YahooKeyKey-Source-1.1.2528/DataTables/cj-ext.cin",
+  "source_sha256": "bb30b57550e796aeb255e0efe92749c1ea28b74cd42fed7a6c22282091bd44e6",
+  "license_file": "LICENSE.KeyKey.txt",
+  "source_notes": "# CangJie (often mis-Romanized as Changjei) input method table\n# tweaked by b6s for OVIMGeneric(SQLite) in UTF-8 encoding.\n#\n# This table also extended to include HKSCS encodings. For details, see\n#       http://www.info.gov.hk/digital21/chi/hkscs/index.html\n#\n# Now this table is supplied by CNS11643 to have around 70,000 Chinese\n# characters. This work is based on opendesktop.org.tw's cj.cin file and\n# merged by yylin and b6s.\n#\n",
+  "properties": {
+    "gen_inp": "",
+    "ename": "CangJie (Large Character Set)",
+    "cname": "倉頡（大字集）",
+    "tcname": "倉頡（大字集）",
+    "scname": "仓颉（大字集）",
+    "encoding": "UTF-8",
+    "selkey": "123456789",
+    "endkey": ",./;'[]\\`-=<>?:\"{}|~!@#$%^&*()_+"
+  },
+  "entry_count": 82873,
+  "distinct_code_count": 65732,
+  "duplicate_entry_count": 8,
+  "keyname_count": 58,
+  "output_sha256": {
+    "cangjie.tsv": "24792cf00124f0891578c9fd466600f4c737e8ad73f311d7910843e8881cbacc",
+    "keynames.tsv": "1f9d24cc6a1eb5dcf5f8f5b69ed34bf9ff6bb774d1ce292e122103092d911b05"
+  }
+}

@@ -1,0 +1,55 @@
+name: Swift and Rust migration checks
+
+on:
+  pull_request:
+    paths:
+      - "migration/**"
+      - "tools/*migration*.sh"
+      - "tools/extract-cangjie.rb"
+      - "tools/extract-migration-compatibility.rb"
+      - "Makefile"
+      - ".github/workflows/migration.yml"
+  push:
+    branches: [main, master]
+    paths:
+      - "migration/**"
+      - "tools/*migration*.sh"
+      - "tools/extract-cangjie.rb"
+      - "tools/extract-migration-compatibility.rb"
+      - "Makefile"
+      - ".github/workflows/migration.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    name: Legacy baseline, Rust state machine and Swift bridge
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install project-local pinned Rust
+        run: make migration-toolchain
+      - name: Verify extraction, legacy behavior and Swift to Rust
+        run: make migration-check
+      - name: Verify Preview build and native composition adapter
+        run: make migration-preview-check
+
+  linux:
+    name: Platform-independent Rust input core
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: migration/core
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust
+        run: |
+          toolchain=$(sed -n 's/^channel = "\([^"]*\)"/\1/p' ../rust-toolchain.toml)
+          rustup toolchain install "$toolchain" --profile minimal --component rustfmt --component clippy
+      - name: Check standalone core
+        run: |
+          cargo fmt --check
+          cargo test --locked --offline
+          cargo clippy --locked --offline --all-targets -- -D warnings

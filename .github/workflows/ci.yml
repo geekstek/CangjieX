@@ -1,61 +1,32 @@
 name: CI
-
 on:
   push:
-    branches:
-      - main
-      - master
+    branches: [main, master]
   pull_request:
   workflow_dispatch:
-
 permissions:
   contents: read
-
 jobs:
   package:
-    name: Build and verify package
+    name: Verify universal per-user installer
     runs-on: macos-latest
-
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Check source patch manifest
-        shell: bash
-        run: make source-patch-check
-
-      - name: Prepare Ruby SQLite dependency
-        shell: bash
+      - uses: actions/checkout@v4
+      - name: Prepare Rust toolchain and cross-compile target
         run: |
-          ruby -e 'require "sqlite3"' >/dev/null 2>&1 || sudo gem install sqlite3 --no-document
-
-      - name: Build, verify, and checksum source package
-        shell: bash
-        run: |
-          make source-checksum
-          shasum -a 256 -c build/source/CangjieX.pkg.sha256
-
-      - name: Upload package artifact
-        uses: actions/upload-artifact@v4
+          make migration-toolchain
+          architecture=$(uname -m)
+          if [[ "${architecture}" == arm64 ]]; then target=x86_64-apple-darwin; else target=aarch64-apple-darwin; fi
+          CARGO_HOME="$PWD/.source/migration/cargo" RUSTUP_HOME="$PWD/.source/migration/rustup" \
+            .source/migration/cargo/bin/rustup target add "${target}"
+      - name: Build and verify package
+        run: make migration-package
+      - uses: actions/upload-artifact@v4
         with:
-          name: CangjieX-source-pkg
+          name: CangjieX-universal-installer
           path: |
-            build/source/CangjieX.pkg
-            build/source/CangjieX.pkg.sha256
-            build/source/source-build-info.txt
-            tools/source-patches/manifest.tsv
-          if-no-files-found: ignore
-          retention-days: 7
-
-      - name: Upload build logs on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: CangjieX-build-logs
-          path: |
-            /tmp/CangjieX-upstream-source/source-build.log
-            /tmp/CangjieX-upstream-source/database-cooker.log
-            build/source/components.plist
-            build/source/source-build-info.txt
-          if-no-files-found: ignore
+            build/migration/release/CangjieX-*.pkg
+            build/migration/release/CangjieX-*.sha256
+            build/migration/release/build-info.json
+          if-no-files-found: error
           retention-days: 7

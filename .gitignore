@@ -1,4 +1,9 @@
 .DS_Store
 build/
+competitives/
 .source/
 *.pkg
+/migration/core/target/
+
+.codegraph/
+__pycache__/

@@ -1,0 +1,22 @@
+{
+  "upstream_commit": "81e05f070c070af65cac21e8da28ca4ff2d58905",
+  "sources": {
+    "ModulePackages/OVOFHanConvert/VXHCTC2SCTable.c": "42afe38f09cfc4c82f39fafc409bab0c03fe7e686061d6c8553fbcc33f402ce3",
+    "DataTables/cj-punctuations-halfwidth.cin": "977ab6362fb872aed7375fffe18c3813c2fded44cda518358bca31b8aebbb540"
+  },
+  "tc2sc_pairs": 3059,
+  "tc2sc_notes": "3058 initialized pairs plus the implicit zero pair in the original C array; preserve the legacy bsearch layout.",
+  "associated_phrases_source": {
+    "path": "Yahoo! KeyKey.app/Contents/Resources/Databases/KeyKey.db",
+    "sha256": "3d11ab1c0bfb66cb2c695e863bc773558ac4f33908652989131f992bbc6b72a0",
+    "table": "associated_phrases",
+    "order": "rowid",
+    "row_count": 6006,
+    "notes": "Public bundled language data from the existing legacy distribution, not a user database."
+  },
+  "output_sha256": {
+    "punctuation-halfwidth.tsv": "2db46ed5c12f859802a74edfed3fb0d137947a3c9bf0b0c49810e8e3c37b5f87",
+    "tc2sc.tsv": "57ccce5ad41422ef23af2c60bd5e1a62c87044e0b8209b7b5a49c602965c78e9",
+    "associated-phrases.tsv": "589228900890b32e7fe747a86403e9cba45cf2c275dd3500596d1d66769f5229"
+  }
+}

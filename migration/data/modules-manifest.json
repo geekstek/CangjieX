@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "upstream_repository": "https://github.com/YahooArchive/KeyKey",
+  "upstream_commit": "81e05f070c070af65cac21e8da28ca4ff2d58905",
+  "license_file": "LICENSE.KeyKey.txt",
+  "tables": {
+    "simplex": {
+      "source_path": "DataTables/simplex-ext.cin",
+      "source_sha256": "8d925bfbd524dbc6042a1ce89912aadc17d8aa34109410a22948fd07c2d006e9",
+      "properties": {
+        "gen_inp": "",
+        "ename": "Simplex (Large Character Set)",
+        "cname": "簡易（大字集）",
+        "tcname": "簡易（大字集）",
+        "scname": "简易（大字集）",
+        "encoding": "UTF-8",
+        "selkey": "123456789",
+        "endkey": ",./;'[]\\`-=<>?:\"{}|~!@#$%^&*()_"
+      },
+      "entry_count": 63234,
+      "distinct_code_count": 706
+    },
+    "bopomofo-correction": {
+      "source_path": "DataTables/bopomofo-correction.cin",
+      "source_sha256": "76caa12eac8042e501426f0c8d66dca85c0cddcb19e0ccc98c369491d878e699",
+      "properties": {
+        "gen_inp": "",
+        "ename": "Zhuyinwen Reverse Lookup",
+        "encoding": "UTF-8"
+      },
+      "entry_count": 133,
+      "distinct_code_count": 52
+    }
+  },
+  "output_sha256": {
+    "simplex.tsv": "d9bf46c2f920a89b507ed8eaabe126961260778c8ade10042c36187fbe386585",
+    "simplex-keynames.tsv": "1f9d24cc6a1eb5dcf5f8f5b69ed34bf9ff6bb774d1ce292e122103092d911b05",
+    "bopomofo-correction.tsv": "c8307ccc05c9e8f0fa6ee76679252f9cf596d707976f93e7ffbec7ae2f0dbe81"
+  }
+}
