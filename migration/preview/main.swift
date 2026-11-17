@@ -12,7 +12,7 @@ if CommandLine.arguments.contains("--register-preview") {
         FileHandle.standardError.write(Data("Preview registration failed: \(status)\n".utf8))
         exit(1)
     }
-    print("Registered 倉頡星 Preview. Add it in Keyboard > Text Input to try it.")
+    print("Registered 倉頡星. Add it in Keyboard > Text Input to try it.")
     exit(0)
 }
 let application = NSApplication.shared

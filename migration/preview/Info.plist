@@ -3,8 +3,8 @@
 <plist version="1.0"><dict>
     <key>CFBundleExecutable</key><string>CangjieXPreview</string>
     <key>CFBundleIdentifier</key><string>io.github.geekstek.inputmethod.CangjieXPreview</string>
-    <key>CFBundleName</key><string>CangjieX Preview</string>
-    <key>CFBundleDisplayName</key><string>倉頡星 Preview</string>
+    <key>CFBundleName</key><string>倉頡星</string>
+    <key>CFBundleDisplayName</key><string>倉頡星</string>
     <key>CFBundleIconFile</key><string>Preview.icns</string>
     <key>tsInputMethodIconFileKey</key><string>PreviewMenu.icns</string>
     <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>

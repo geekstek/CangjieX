@@ -8,9 +8,9 @@
 
 1. 完成組字並切到 ABC，下載並開啟 `.pkg`。支援 macOS 11 或更新版本。
 2. 安裝只更新目前使用者的 `~/Library/Input Methods/CangjieXPreview.app`，保留舊版及其設定／詞頻。
-3. 保存工作，在方便時登出並重新登入；到「系統設定 → 鍵盤 → 文字輸入 → 編輯 → ＋ → 繁體中文」加入 **CangjieX Preview／倉頡星 Preview**。已有該項目時直接選取即可。
+3. 保存工作，在方便時登出並重新登入；到「系統設定 → 鍵盤 → 文字輸入 → 編輯 → ＋ → 繁體中文」加入 **倉頡星**。先前已加入測試版時，重新登入後名稱會更新，不需重複加入。
 
-本版沿用 Preview 身份，是 Swift / Rust 路線的首個可下載版；跨應用實際試打仍待完整驗收。安裝包未以 Developer ID 簽署，也未經 Apple 公證；若 macOS 阻擋，確認下載來源後使用「系統設定 → 隱私權與安全性 → 仍要打開」。不用停用 Gatekeeper 或 SIP。
+本版顯示名稱為「倉頡星」，內部沿用獨立識別以保留舊版；這是 Swift / Rust 路線的首個可下載版；跨應用實際試打仍待完整驗收。安裝包未以 Developer ID 簽署，也未經 Apple 公證；若 macOS 阻擋，確認下載來源後使用「系統設定 → 隱私權與安全性 → 仍要打開」。不用停用 Gatekeeper 或 SIP。
 
 ## 目前狀態
 
@@ -109,7 +109,7 @@ Preview 0.5.0 在選單與偏好中提供「倉頡／簡易」切換及「注音
 
 安裝只寫入 `~/Library/Input Methods/CangjieXPreview.app`，沿用獨立的 `io.github.geekstek.inputmethod.CangjieXPreview` 標識、連線及程序名稱，不呼叫舊版安裝／卸載腳本。更新時須先切離 Preview，避免遺失未完成組字。原型為本機 ad-hoc 簽署、當前主機架構建置；未公證；V2.0.0 發佈包由上述獨立打包路線產生。
 
-在「系統設定 → 鍵盤 → 文字輸入 → 編輯 → 加入 → 繁體中文」加入 **CangjieX Preview**。測試程式位於 `build/migration/preview/CangjieX Preview Test.app`，使用 macOS 文字與輸入源 API；「使用舊版」與「使用 Preview」都透過系統輸入源切換，不直接呼叫 Rust。
+在「系統設定 → 鍵盤 → 文字輸入 → 編輯 → 加入 → 繁體中文」加入 **倉頡星**。測試程式位於 `build/migration/preview/CangjieX Preview Test.app`，使用 macOS 文字與輸入源 API；「使用舊版」與「使用 Preview」都透過系統輸入源切換，不直接呼叫 Rust。
 
 完整的自动检查结果、逐步试打操作、应用矩阵和差异记录模板见 [M3 Preview 验收清单](migration/M3-ACCEPTANCE.md)。请先完成快速检查，再记录焦点切换、光标定位和连续使用；不需要重置旧版词频或重装旧版。
 

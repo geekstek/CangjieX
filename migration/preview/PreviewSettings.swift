@@ -94,7 +94,7 @@ enum PreviewMenuCommand: Int {
     }
 
     static func menu(settings: LegacySettings, target: AnyObject, action: Selector) -> NSMenu {
-        let menu = NSMenu(title: "倉頡星 Preview")
+        let menu = NSMenu(title: "倉頡星")
         menu.autoenablesItems = false
         func add(_ title: String, command: Self, key: String = "", modifiers: NSEvent.ModifierFlags = []) {
             let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
@@ -118,7 +118,7 @@ enum PreviewMenuCommand: Int {
         menu.addItem(.separator())
         add("符號表（系統）…", command: .symbols, key: ".", modifiers: [.command, .control])
         add("偏好設定…", command: .preferences)
-        add("關於倉頡星 Preview", command: .about)
+        add("關於倉頡星", command: .about)
         return menu
     }
 }
@@ -143,7 +143,7 @@ final class PreviewPreferencesWindow: NSWindowController {
         self.store = store
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 400),
                               styleMask: [.titled, .closable], backing: .buffered, defer: false)
-        window.title = "倉頡星 Preview 偏好設定"
+        window.title = "倉頡星 偏好設定"
         window.isReleasedWhenClosed = false
         window.contentView = PreferencesBackground(frame: NSRect(x: 0, y: 0, width: 480, height: 400))
         super.init(window: window)
@@ -222,7 +222,7 @@ final class PreviewPreferencesWindow: NSWindowController {
         hint.font = .systemFont(ofSize: 12)
         hint.textColor = .secondaryLabelColor
         appearance.addArrangedSubview(hint)
-        let footer = NSTextField(wrappingLabelWithString: "僅儲存 Preview 設定，舊版不受影響。\n輸入選項於目前組字結束後生效。")
+        let footer = NSTextField(wrappingLabelWithString: "設定及學習記錄與舊版分開保存。\n輸入選項於目前組字結束後生效。")
         footer.font = .systemFont(ofSize: 11)
         footer.textColor = .secondaryLabelColor
         footer.widthAnchor.constraint(equalToConstant: 440).isActive = true
@@ -261,8 +261,8 @@ final class PreviewPreferencesWindow: NSWindowController {
         do { try operation() }
         catch {
             let alert = NSAlert()
-            alert.messageText = "無法儲存 Preview 設定"
-            alert.informativeText = "請檢查 Preview 資料目錄的寫入權限。"
+            alert.messageText = "無法儲存倉頡星設定"
+            alert.informativeText = "請檢查倉頡星資料目錄的寫入權限。"
             alert.alertStyle = .warning
             if let window { alert.beginSheetModal(for: window) }
         }

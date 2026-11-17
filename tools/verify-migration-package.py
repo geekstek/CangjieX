@@ -32,6 +32,7 @@ for path in payload.rglob("*"):
     assert not path.is_symlink(), "Unexpected symlink in input method payload"
 with (app / "Contents/Info.plist").open("rb") as stream:
     plist = plistlib.load(stream)
+assert plist["CFBundleName"] == "倉頡星" and plist["CFBundleDisplayName"] == "倉頡星"
 assert plist["CFBundleIdentifier"] == "io.github.geekstek.inputmethod.CangjieXPreview"
 assert plist["CFBundleShortVersionString"] == version
 assert plist["LSMinimumSystemVersion"] == "11.0"

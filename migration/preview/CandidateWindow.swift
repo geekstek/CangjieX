@@ -73,8 +73,8 @@ final class CandidateWindow {
         panel.backgroundColor = .clear
         panel.isOpaque = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle, .transient]
-        panel.title = "倉頡星 Preview 候選"
-        panel.setAccessibilityLabel("倉頡星 Preview 候選")
+        panel.title = "倉頡星 候選"
+        panel.setAccessibilityLabel("倉頡星 候選")
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 2

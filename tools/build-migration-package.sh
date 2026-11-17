@@ -41,7 +41,7 @@ cat > "${WORK}/Distribution.xml" <<XML
   <readme file="README.html" mime-type="text/html"/>
   <conclusion file="CONCLUSION.html" mime-type="text/html"/>
   <choices-outline><line choice="preview"/></choices-outline>
-  <choice id="preview" title="倉頡星 Preview" description="Swift / Rust 輸入法，與舊版並存">
+  <choice id="preview" title="倉頡星" description="安裝倉頡星 2.0.0，保留舊版">
     <pkg-ref id="${COMPONENT}"/>
   </choice>
   <pkg-ref id="${COMPONENT}" version="${VERSION}">CangjieXPreview.pkg</pkg-ref>
@@ -55,7 +55,7 @@ pkgutil --expand-full "${OUTPUT}/${PACKAGE}" "${WORK}/expanded"
 python3 tools/verify-migration-package.py "${WORK}/expanded" "${APP}" "${VERSION}"
 python3 - "${OUTPUT}/build-info.json" "${VERSION}" <<'PY'
 import json,subprocess,sys
-info={'version':sys.argv[2],'source_commit':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
+info={'version':sys.argv[2],'display_name':'倉頡星','source_commit':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
       'source_dirty':bool(subprocess.check_output(['git','status','--porcelain'],text=True).strip()),
       'architectures':['arm64','x86_64'],'minimum_macos':'11.0',
       'bundle_identifier':'io.github.geekstek.inputmethod.CangjieXPreview',

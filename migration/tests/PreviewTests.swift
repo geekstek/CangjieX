@@ -258,7 +258,7 @@ private enum PreviewTests {
         window.show(snapshot, caret: NSRect(x: 300, y: 400, width: 1, height: 20), windowLevel: 0, settings: settings,
                     choose: { clicks.append($0) }, turnPage: { pageDirections.append($0) })
         try check(window.isVisible && window.frame.width >= 168 && window.frame.width <= 372 && window.frame.height >= 70, "Candidate panel layout")
-        guard let panel = NSApp.windows.first(where: { $0.title == "倉頡星 Preview 候選" && $0.isVisible }),
+        guard let panel = NSApp.windows.first(where: { $0.title == "倉頡星 候選" && $0.isVisible }),
               let content = panel.contentView as? NSStackView else { throw TestFailure.failed("Candidate content missing") }
         try check(!panel.canBecomeKey && !panel.canBecomeMain && !panel.isKeyWindow, "Candidate panel can steal keyboard focus")
         let singlePageRows = content.arrangedSubviews.compactMap { $0 as? NSButton }
@@ -551,7 +551,7 @@ private enum PreviewTests {
                 let mapped = PreviewKeyMapper.candidateSelection(index: index, associated: false, spaceFirst: false)!
                 try! correction.handle(key: mapped.0, client: correctedClient)
             }, turnPage: { _ in })
-        guard let correctionPanel = NSApp.windows.first(where: { $0.title == "倉頡星 Preview 候選" && $0.isVisible }),
+        guard let correctionPanel = NSApp.windows.first(where: { $0.title == "倉頡星 候選" && $0.isVisible }),
               let correctionContent = correctionPanel.contentView as? NSStackView else { throw TestFailure.failed("Correction candidates missing") }
         let correctionRows = correctionContent.arrangedSubviews.compactMap { $0 as? NSButton }
         try check(correctionRows[0].accessibilityLabel()?.contains("1，") == true,
@@ -563,7 +563,9 @@ private enum PreviewTests {
         let plistData = try Data(contentsOf: URL(fileURLWithPath: "migration/preview/Info.plist"))
         let plist = try PropertyListSerialization.propertyList(from: plistData, format: nil) as! [String: Any]
         let identifier = "io.github.geekstek.inputmethod.CangjieXPreview"
-        try check(plist["CFBundleIdentifier"] as? String == identifier
+        try check(plist["CFBundleName"] as? String == "倉頡星"
+                  && plist["CFBundleDisplayName"] as? String == "倉頡星"
+                  && plist["CFBundleIdentifier"] as? String == identifier
                   && plist["TISInputSourceID"] as? String == identifier
                   && plist["InputMethodConnectionName"] as? String == identifier + "_Connection",
                   "Preview identity must remain independent of legacy")
