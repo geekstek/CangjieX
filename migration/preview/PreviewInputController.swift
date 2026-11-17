@@ -181,10 +181,11 @@ final class PreviewInputController: IMKInputController {
         case .preferences:
             PreviewPreferencesWindow.shared.present()
         case .about:
-            let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Preview"
-            NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "倉頡星", .applicationVersion: version,
-                .credits: NSAttributedString(string: "V2.0.0 的設定與學習記錄獨立保存，不會寫回舊版。\n\n已提供倉頡、簡易、注音文校正、聯想詞、繁簡及全形輸出。\n注音文校正處理輸入法收到的文字，不改寫已上屏內容或攔截貼上。")])
-            NSApp.activate(ignoringOtherApps: true)
+            PreviewAboutWindow.shared.present { [weak self] in
+                guard let self, let client = self.inputClient else { return }
+                try self.composition?.commit(client: IMKCompositionClient(client: client))
+                self.candidates?.hide()
+            }
         }
     }
 }

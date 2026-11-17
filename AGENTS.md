@@ -35,6 +35,10 @@ V2 開發、測試與發布均須保留舊版：
 - 不在日誌輸出使用者輸入、候選內容、學習記錄或憑證。
 - V2 工作不呼叫舊版 `build.sh`／`uninstall.sh` 作安裝或清理。它們有替換系統輸入法的行為，只適用於明確的 V1.x 維護工作。
 - 開發安裝使用現有 `tools/install-migration-preview.sh` 保護，先完成組字並切離新版。單純建置或驗證不應更改使用者輸入源。
+- 註冊、修復及 V2 卸載使用 `InputSourceMaintenance.swift`／`tools/maintain-migration-input-source.sh`。維護前切離新版並結束系統設定；卸載預設保留設定與詞頻。只有已確認 app 不存在、TIS 也無來源的舊識別碼才可從系統輸入源清單移除，不改寫舊版 app 或偏好。
+- 關於視窗的 GUI 卸載由 `UninstallUI.swift` 啟動簽章已驗證的獨立暫存工具。刪除資料必須經可見確認；Return／Escape 只能取消。GUI 預設勾選完整移除，CLI 則須明確傳入 `uninstall --delete-data`；不可將此旗標套用到開發更新或修復。
+- 卸載 GUI 先完成組字、確認環境及切換 ABC，再移除 app；以新程序驗證殘留並顯示結果。日常安裝不得作自刪測試，使用隔離資料與不連接真實卸載的介面驗證程式。
+- 名稱與空白項目須分別驗證「已加入清單」、「繁體中文可加入清單」與右上角選單。三處有獨立快取；只驗證 API 名稱或重新打開視窗不足以宣稱修復。維護工具只刷新鍵盤面板的目錄快取與相關背景程序，不重置全域 Launch Services 資料庫或整份鍵盤設定。
 
 ## 行為與橋接契約
 
@@ -71,6 +75,7 @@ make migration-extract-compatibility
 | Rust、碼表、原版行為或 C ABI | `make migration-check`；涉及 Swift 契約時亦執行 `make migration-preview-check`。 |
 | Swift 輸入接線、設定或候選介面 | `make migration-preview-check`；介面變更另查看原生渲染或實際視窗。 |
 | 安裝包、架構、版本與發布 | `make migration-package`，檢查 Universal 切片、版本、包內路徑、摘要與簽章。 |
+| 維護工具與卸載保護 | `make migration-maintenance-check`（隔離資料）；它亦包含在 `make migration-preview-check`。不得以日常安裝或詞頻做卸載測試。 |
 | 文件 | 核對檔案連結、命令與實作，不必重跑無關的程式測試。 |
 
 Rust 工具鏈版本以 `migration/rust-toolchain.toml` 為準。首次執行 `make migration-toolchain`，工具安裝在專案快取，不改系統 PATH。

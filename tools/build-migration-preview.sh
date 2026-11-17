@@ -28,10 +28,11 @@ cp migration/data/modules-manifest.json "${APP}/Contents/Resources/modules-manif
 cp migration/data/compatibility-manifest.json "${APP}/Contents/Resources/compatibility-manifest.json"
 cp migration/data/LICENSE.KeyKey.txt "${APP}/Contents/Resources/LICENSE.KeyKey.txt"
 cp migration/data/manifest.json "${APP}/Contents/Resources/cangjie-manifest.json"
-sources=(migration/preview/LegacySettings.swift migration/preview/PreviewSettings.swift migration/swift/EngineSession.swift migration/preview/CompositionSession.swift
+sources=(migration/preview/InputSourceMaintenance.swift migration/preview/UninstallUI.swift migration/preview/LegacySettings.swift migration/preview/PreviewSettings.swift migration/swift/EngineSession.swift migration/preview/CompositionSession.swift
          migration/preview/CandidateWindow.swift migration/preview/PreviewInputController.swift)
 PREVIEW_ARCHS="${PREVIEW_ARCHS:-$(uname -m)}"
 binaries=()
+maintenance_binaries=()
 for architecture in ${PREVIEW_ARCHS}; do
     case "${architecture}" in
         arm64) rust_target="aarch64-apple-darwin" ;;
@@ -52,14 +53,22 @@ for architecture in ${PREVIEW_ARCHS}; do
     -L "${library_dir}" -lcangjiex_core -lsqlite3 \
     -o "${binary}"
     binaries+=("${binary}")
+    maintenance_binary="${OUTPUT_DIR}/CangjieXMaintenance-${architecture}"
+    xcrun swiftc -target "${architecture}-apple-macosx11.0" -swift-version 5 -O -warnings-as-errors \
+        -D MAINTENANCE_TOOL -parse-as-library migration/preview/InputSourceMaintenance.swift migration/preview/UninstallUI.swift \
+        -framework AppKit -framework Carbon -framework CoreServices -o "${maintenance_binary}"
+    maintenance_binaries+=("${maintenance_binary}")
 done
 xcrun lipo -create "${binaries[@]}" -output "${APP}/Contents/MacOS/CangjieXPreview"
+xcrun lipo -create "${maintenance_binaries[@]}" -output "${APP}/Contents/MacOS/CangjieXMaintenance"
+codesign --force --sign - --timestamp=none "${APP}/Contents/MacOS/CangjieXMaintenance"
 plutil -lint "${APP}/Contents/Info.plist"
 codesign --force --sign - --timestamp=none "${APP}"
 codesign --verify --strict "${APP}"
 echo "Built independent Preview: ${APP}"
 
 if [[ "${1:-}" == --test ]]; then
+    bash tools/check-migration-maintenance.sh
     xcrun swiftc -swift-version 5 -O -warnings-as-errors \
         -import-objc-header migration/preview/PreviewBridge.h \
         "${sources[@]}" migration/tests/PreviewTests.swift \

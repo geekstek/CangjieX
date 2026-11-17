@@ -41,7 +41,7 @@ cat > "${WORK}/Distribution.xml" <<XML
   <readme file="README.html" mime-type="text/html"/>
   <conclusion file="CONCLUSION.html" mime-type="text/html"/>
   <choices-outline><line choice="preview"/></choices-outline>
-  <choice id="preview" title="倉頡星" description="安裝倉頡星 2.0.0，保留舊版">
+  <choice id="preview" title="倉頡星" description="安裝倉頡星 ${VERSION}，保留舊版">
     <pkg-ref id="${COMPONENT}"/>
   </choice>
   <pkg-ref id="${COMPONENT}" version="${VERSION}">CangjieXPreview.pkg</pkg-ref>

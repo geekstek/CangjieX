@@ -48,4 +48,8 @@ for file in source_app.rglob("*"):
         assert hashlib.sha256(file.read_bytes()).digest() == hashlib.sha256(delivered.read_bytes()).digest(), str(file)
 subprocess.run(["codesign", "--verify", "--strict", str(app)], check=True)
 subprocess.run(["xcrun", "lipo", str(app / "Contents/MacOS/CangjieXPreview"), "-verify_arch", "arm64", "x86_64"], check=True)
+maintenance = app / "Contents/MacOS/CangjieXMaintenance"
+assert maintenance.is_file(), "Installer must include the input-source maintenance tool"
+subprocess.run(["xcrun", "lipo", str(maintenance), "-verify_arch", "arm64", "x86_64"], check=True)
+subprocess.run(["codesign", "--verify", "--strict", str(maintenance)], check=True)
 print("PASS: installer payload/version/signature, both architectures, user-only destination, no scripts or legacy replacement.")

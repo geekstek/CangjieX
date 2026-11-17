@@ -90,6 +90,19 @@ migration-preview-check:
 migration-preview-install: migration-preview
 	bash tools/install-migration-preview.sh
 
+.PHONY: migration-maintenance-check migration-preview-status migration-preview-repair migration-preview-uninstall
+migration-maintenance-check:
+	bash tools/check-migration-maintenance.sh
+
+migration-preview-status:
+	bash tools/maintain-migration-input-source.sh status
+
+migration-preview-repair:
+	bash tools/maintain-migration-input-source.sh repair
+
+migration-preview-uninstall:
+	bash tools/maintain-migration-input-source.sh uninstall
+
 migration-preview-test-host:
 	bash tools/build-migration-preview.sh --test-host
 

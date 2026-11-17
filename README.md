@@ -2,7 +2,7 @@
 
 **以 Swift + Rust 打造的原生 macOS 倉頡輸入法。**
 
-倉頡星保留倉頡與簡易的輸入習慣，以 Swift 負責 macOS 系統整合與原生介面，Rust 負責查表、輸入狀態與候選排序。V2.0.0 提供 Apple Silicon 與 Intel 的 Universal 安裝包，支援 macOS 11 或更新版本。
+倉頡星保留倉頡與簡易的輸入習慣，以 Swift 負責 macOS 系統整合與原生介面，Rust 負責查表、輸入狀態與候選排序。V2 提供 Apple Silicon 與 Intel 的 Universal 安裝包，支援 macOS 11 或更新版本。
 
 碼表及相容行為源自 Yahoo! KeyKey／OpenVanilla；新版使用獨立的設定與學習記錄，可與舊版並存。
 
@@ -34,6 +34,7 @@ Rust 核心目前不含第三方 crate 依賴。原生編譯與共用字典結�
 | **原生候選窗** | 跟隨系統淺深色外觀，支援鍵盤／滑鼠選字、翻頁及候選字大小設定。 |
 | **符號與偏好設定** | 可開啟 macOS 系統符號面板，並在偏好設定調整輸入、輸出、候選及提示音。 |
 | **本機處理** | 查表、轉換與排序學習均在本機完成，不需要雲端輸入服務。 |
+| **修復及解除安裝（V2.0.1）** | 在「關於倉頡星」開啟解除安裝確認，可選擇清除設定及學習記錄；另附原生註冊與快取修復工具。 |
 
 ### 候選排序怎樣學習？
 
@@ -82,7 +83,35 @@ Rust 核心目前不含第三方 crate 依賴。原生編譯與共用字典結�
 
 舊版設定以唯讀方式載入，動態詞頻首次啟用時可唯讀匯入舊記錄；後續修改只寫入新版自己的檔案。V2 安裝包只允許目前使用者目錄，不含安裝腳本，不終止舊版程序，也不替換 `/Library/Input Methods/CangjieX.app`。
 
-舊版與新版可能同時顯示為「倉頡星」，可從「關於倉頡星」確認是否為 V2.0.0。
+舊版與新版可能同時顯示為「倉頡星」，可從「關於倉頡星」確認是否為 V2.x。
+
+### 升級、修復及移除
+
+**V2.0.1 新增以下功能，V2.0.0 安裝包維持原樣。** 升級後請先保存工作、登出再登入，使系統重新載入輸入法名稱。
+
+解除安裝可直接從右上角「倉頡星 → 關於倉頡星 → 解除安裝倉頡星…」開啟。先結束「系統設定」（Command＋Q）。確認視窗預設勾選「一併刪除設定與學習記錄（無法復原）」，取消勾選可保留資料；Return、Escape 與「取消」都不會刪除，必須明確按下「解除安裝」。
+
+獨立卸載程序會切換到 ABC、停用輸入源、移除 V2 app 與收據、清理所屬記錄及快取，再以新程序檢查結果。程式自刪後仍會顯示完成或錯誤訊息。若系統仍保留登入階段的目錄，會要求登出再登入，不會提前宣稱快取已全部消失。已安裝的 V1 舊版及其他輸入法會保留。
+
+app 也附帶原生維護工具，不需要另外安裝 Swift／Rust 工具鏈。使用終端機時先完成組字並切換到 ABC，再結束系統設定：
+
+```sh
+# 查詢已安裝程式與系統回報的名稱；不修改設定。
+"$HOME/Library/Input Methods/CangjieXPreview.app/Contents/MacOS/CangjieXMaintenance" status
+
+# 修復升級後的舊名稱、舊 Preview 註冊及鍵盤設定的空白項目。
+"$HOME/Library/Input Methods/CangjieXPreview.app/Contents/MacOS/CangjieXMaintenance" repair
+
+# 移除目前使用者的 V2 輸入法及安裝記錄，保留設定與詞頻。
+"$HOME/Library/Input Methods/CangjieXPreview.app/Contents/MacOS/CangjieXMaintenance" uninstall
+
+# 完整移除新版設定與學習記錄（無法復原）。
+"$HOME/Library/Input Methods/CangjieXPreview.app/Contents/MacOS/CangjieXMaintenance" uninstall --delete-data
+```
+
+維護工具會保護尚未完成的輸入、其他輸入源及已安裝的 V1 舊版。修復只清理失效的舊識別記錄，重建鍵盤設定自己的輸入法目錄快取，並刷新右上角選單；不重置整份鍵盤偏好。卸載預設保留本節列出的新版資料，方便重新安裝後繼續使用。
+
+完成後須實際確認三處：已加入清單沒有空白列；「＋ → Chinese, Traditional」可加入清單沒有空白或舊 Preview；右上角名稱為「倉頡星」（卸載後則應消失）。API 查到正確名稱，不能代替畫面驗證；若系統仍保留舊快取，請保存工作後登出並重新登入。
 
 ## 驗證與目前範圍
 
@@ -112,6 +141,7 @@ make migration-toolchain
 ```sh
 make migration-check
 make migration-preview-check
+make migration-maintenance-check
 ```
 
 前者驗證資料、原版 C++ 基線、Rust 測試、格式、Clippy 與跨語言重放；後者建置 Swift 輸入法，驗證原生組字、候選窗、偏好設定與學習保存。這兩條命令不會安裝或切換輸入源。
@@ -126,11 +156,13 @@ make migration-package
 
 輸出位於 `build/migration/release/`：
 
-- `CangjieX-2.0.0-universal.pkg`：目前使用者安裝包。
-- `CangjieX-2.0.0-universal.pkg.sha256`：SHA256 校驗檔。
+- `CangjieX-2.0.1-universal.pkg`：目前使用者安裝包。
+- `CangjieX-2.0.1-universal.pkg.sha256`：SHA256 校驗檔。
 - `build-info.json`：構建 commit、架構、最低系統版本及簽署狀態。
 
-只做本機開發安裝時可使用 `make migration-preview-install`；先完成組字並切離新版輸入法。原生試打工具可用 `make migration-preview-test-host` 建置。
+只做本機開發安裝時可使用 `make migration-preview-install`；先完成組字並切離新版輸入法，結束系統設定。安裝會完整替換 app bundle，防止舊版的語系名稱資源殘留，並呼叫同一套維護工具刷新註冊與快取。原生試打工具可用 `make migration-preview-test-host` 建置。
+
+專案內也可使用 `make migration-preview-status`、`make migration-preview-repair`、`make migration-preview-uninstall`；開發腳本會以 Xcode 工具鏈編譯目前原始碼的維護工具，也適用於尚未附帶工具的舊安裝包。`make migration-maintenance-check` 只操作暫存測試資料，不卸載日常輸入法、不寫入日常設定；它也包含在 `migration-preview-check` 中。
 
 ### 程式結構
 
