@@ -61,7 +61,7 @@ Rust 核心目前不含第三方 crate 依賴。原生編譯與共用字典結�
 
 ## 下載與安裝
 
-**[倉頡星 V2.0.0 已發布](https://github.com/geekstek/CangjieX/releases/tag/v2.0.0)。** [下載 Universal 安裝包](https://github.com/geekstek/CangjieX/releases/download/v2.0.0/CangjieX-2.0.0-universal.pkg)，適用於 Apple Silicon 與 Intel。Release 同時提供 SHA256 校驗檔及建置資訊；公開下載檔案已核對摘要，確認與通過 CI 的安裝包一致。V1.x 附件屬於舊版建置路線。
+**[倉頡星 V2.0.1 已發布](https://github.com/geekstek/CangjieX/releases/tag/v2.0.1)。** [下載 Universal 安裝包](https://github.com/geekstek/CangjieX/releases/download/v2.0.1/CangjieX-2.0.1-universal.pkg)，適用於 Apple Silicon 與 Intel。Release 同時提供 SHA256 校驗檔及建置資訊；公開下載檔案已核對摘要、版本及構建提交。V2.0.0 與 V1.x Release 保留供回退。
 
 1. 完成目前的組字，先切換到 ABC，再開啟 `.pkg`。
 2. 安裝到目前使用者的目錄，保留舊版程式、偏好與詞頻。已有早期測試版時會更新它。
@@ -109,7 +109,7 @@ app 也附帶原生維護工具，不需要另外安裝 Swift／Rust 工具鏈�
 "$HOME/Library/Input Methods/CangjieXPreview.app/Contents/MacOS/CangjieXMaintenance" uninstall --delete-data
 ```
 
-維護工具會保護尚未完成的輸入、其他輸入源及已安裝的 V1 舊版。修復只清理失效的舊識別記錄，重建鍵盤設定自己的輸入法目錄快取，並刷新右上角選單；不重置整份鍵盤偏好。卸載預設保留本節列出的新版資料，方便重新安裝後繼續使用。
+維護工具會保護尚未完成的輸入、其他輸入源及已安裝的 V1 舊版。修復只清理失效的舊識別記錄，重建鍵盤設定自己的輸入法目錄快取，並刷新右上角選單；不重置整份鍵盤偏好。終端機的 `uninstall` 預設保留本節列出的新版資料，方便重新安裝後繼續使用。
 
 完成後須實際確認三處：已加入清單沒有空白列；「＋ → Chinese, Traditional」可加入清單沒有空白或舊 Preview；右上角名稱為「倉頡星」（卸載後則應消失）。API 查到正確名稱，不能代替畫面驗證；若系統仍保留舊快取，請保存工作後登出並重新登入。
 
