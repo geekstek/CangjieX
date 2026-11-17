@@ -197,6 +197,9 @@ impl Session {
             true
         } else if event.command || event.control || event.option {
             false
+        } else if event.shift && matches!(event.key, Key::Character(c) if c.is_ascii_alphabetic()) {
+            // Shift English also applies while a candidate window is open.
+            self.handle_reading(event, &mut committed, &mut beep)
         } else if self.associated {
             self.handle_associated(event, &mut committed, &mut beep)
         } else if !self.candidates.is_empty() {
@@ -334,8 +337,12 @@ impl Session {
         if event.caps_lock || (event.shift && printable.is_some_and(|c| c.is_ascii_alphabetic())) {
             self.reset();
             if let Some(character) = printable {
-                let character = if event.caps_lock && event.shift {
-                    character.to_ascii_uppercase()
+                let character = if event.shift {
+                    if event.caps_lock {
+                        character.to_ascii_uppercase()
+                    } else {
+                        character.to_ascii_lowercase()
+                    }
                 } else if character.is_ascii_uppercase() {
                     character.to_ascii_lowercase()
                 } else {
@@ -770,7 +777,7 @@ mod tests {
                     ..KeyEvent::new(Key::Character(b'a'))
                 })
                 .committed,
-            "Ａ"
+            "ａ"
         );
     }
 
@@ -898,10 +905,18 @@ mod tests {
                 ..KeyEvent::new(Key::Character(b'a'))
             },
         ] {
-            let snapshot = session.handle(event);
-            assert!(!snapshot.handled && snapshot.visible && !snapshot.beep);
-            assert_eq!(snapshot.reading, "日");
-            assert!(snapshot.committed.is_empty());
+            for shift in [false, true] {
+                for caps_lock in [false, true] {
+                    let snapshot = session.handle(KeyEvent {
+                        shift,
+                        caps_lock,
+                        ..event
+                    });
+                    assert!(!snapshot.handled && snapshot.visible && !snapshot.beep);
+                    assert_eq!(snapshot.reading, "日");
+                    assert!(snapshot.committed.is_empty());
+                }
+            }
         }
         assert_eq!(
             session
@@ -1033,8 +1048,57 @@ mod tests {
             shift: true,
             ..KeyEvent::new(Key::Character(b'a'))
         });
-        assert_eq!(english.committed, "A");
+        assert_eq!(english.committed, "a");
         assert!(english.reading.is_empty());
+    }
+
+    #[test]
+    fn shift_english_case_follows_caps_lock_in_both_input_modes() {
+        for simplex in [false, true] {
+            for fullwidth_output in [false, true] {
+                let mut session = Session::configured(
+                    SessionOptions {
+                        simplex,
+                        fullwidth_output,
+                        compose_while_typing: true,
+                        ..SessionOptions::default()
+                    },
+                    Learning::default(),
+                );
+                for caps_lock in [false, true] {
+                    for character in b'a'..=b'z' {
+                        for received in [character, character.to_ascii_uppercase()] {
+                            type_code(&mut session, "a");
+                            let snapshot = session.handle(KeyEvent {
+                                shift: true,
+                                caps_lock,
+                                ..KeyEvent::new(Key::Character(received))
+                            });
+                            let expected = if caps_lock {
+                                character.to_ascii_uppercase()
+                            } else {
+                                character
+                            };
+                            let expected = if fullwidth_output {
+                                char::from_u32(u32::from(expected) + 0xfee0).unwrap()
+                            } else {
+                                char::from(expected)
+                            };
+                            assert_eq!(snapshot.committed, expected.to_string());
+                            assert!(snapshot.handled && !snapshot.beep);
+                            assert!(snapshot.reading.is_empty() && !snapshot.visible);
+                            assert!(snapshot.learning.is_none());
+                            assert!(
+                                session
+                                    .handle(KeyEvent::new(Key::Other))
+                                    .committed
+                                    .is_empty()
+                            );
+                        }
+                    }
+                }
+            }
+        }
     }
 
     #[test]

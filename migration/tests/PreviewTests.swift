@@ -32,7 +32,7 @@ private final class TestMenuTarget: NSObject {
 private struct Frame: Decodable {
     let handled: Bool
     let reading: String
-    let committed: String
+    var committed: String
     let beep: Bool
     let visible: Bool
     let page: Int
@@ -109,12 +109,50 @@ private func verifyCandidateLearning() throws {
     }
 }
 
+private func verifyShiftEnglishCase() throws {
+    for simplex in [false, true] {
+        for fullwidth in [false, true] {
+            let options = (simplex ? UInt32(CJX_OPT_SIMPLEX) : 0)
+                | (fullwidth ? UInt32(CJX_OPT_FULLWIDTH_OUTPUT) : 0)
+            for capsLock in [false, true] {
+                let flags: NSEvent.ModifierFlags = capsLock ? [.shift, .capsLock] : [.shift]
+                for (lower, upper, wideLower, wideUpper) in [("a", "A", "ａ", "Ａ"), ("z", "Z", "ｚ", "Ｚ")] {
+                    let expected = fullwidth ? (capsLock ? wideUpper : wideLower) : (capsLock ? upper : lower)
+                    for received in [lower, upper] {
+                        let states: [(UInt32, [UInt32])] = [(0, []), (0, [97]), (0, [97, 32]),
+                            (UInt32(CJX_OPT_COMPOSE_WHILE_TYPING), [97])]
+                        for (extraOptions, prefix) in states {
+                            let session = try CompositionSession(flags: options | extraOptions)
+                            let client = TestClient()
+                            for key in prefix { try session.handle(key: key, client: client) }
+                            let native = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: flags,
+                                timestamp: 0, windowNumber: 0, context: nil, characters: received,
+                                charactersIgnoringModifiers: received, isARepeat: false, keyCode: 0)!
+                            let (key, modifiers) = PreviewKeyMapper.translate(native)
+                            let result = try session.handle(key: key, modifiers: modifiers, client: client)
+                            try check(result.handled && !result.beep && result.committed == expected,
+                                      "Shift English did not follow Caps Lock")
+                            try check(client.view.string == expected && !client.view.hasMarkedText()
+                                      && client.inserts == [expected] && result.reading.isEmpty && !result.visible,
+                                      "Shift English must replace pending reading and insert exactly once")
+                            try session.commit(client: client)
+                            try check(client.inserts == [expected], "Lifecycle duplicated Shift English")
+                        }
+                    }
+                }
+            }
+        }
+    }
+    print("PASS: native Shift-English follows Caps Lock in Cangjie/Simplex, half/fullwidth, empty/reading and manual/live candidate states.")
+}
+
 @main
 private enum PreviewTests {
     static func main() throws {
         _ = NSApplication.shared
         try verifyCandidateLearning()
         if CommandLine.arguments.contains("--learning-only") { return }
+        try verifyShiftEnglishCase()
         var steps = 0
         var scenarios = 0
         for path in ["migration/baseline/cases.json", "migration/baseline/m2-cases.json", "migration/baseline/m3-live-cases.json", "migration/baseline/m3-full-cases.json", "migration/baseline/simplex-cases.json", "migration/baseline/correction-cases.json", "migration/baseline/simplex-full-cases.json"] {
@@ -131,7 +169,18 @@ private enum PreviewTests {
                         let (key, modifiers) = PreviewKeyMapper.translate(try event(token))
                         actual = try session.handle(key: key, modifiers: modifiers, client: client)
                     }
-                    let expected = scenario.expected[index]
+                    var expected = scenario.expected[index]
+                    // Keep pinned legacy snapshots intact; Shift English now follows Caps Lock.
+                    if ["shift_english", "simplex_shift"].contains(scenario.id) && token == "shift:a" {
+                        try check(expected.committed == "A", "Legacy Shift baseline changed")
+                        expected.committed = "a"
+                    }
+                    if scenario.id == "live_shift_preserves_candidates" && index > 0 {
+                        try check(token == "shift:a" || token == "escape", "Unexpected live Shift baseline event")
+                        expected = Frame(handled: token == "shift:a", reading: "",
+                                         committed: token == "shift:a" ? "a" : "", beep: false, visible: false,
+                                         page: 0, highlight: 0, candidates: [], composing: nil, cursor: nil)
+                    }
                     let size = expected.composing != nil ? 9 : min(9, expected.candidates.count)
                     let first = expected.page * size
                     let page = Array(expected.candidates.dropFirst(first).prefix(size))
@@ -146,7 +195,7 @@ private enum PreviewTests {
                 scenarios += 1
             }
         }
-        print("PASS: native NSEvent mapping and production bridge matched \(scenarios) scenarios / \(steps) snapshots.")
+        print("PASS: native mapping/bridge matched \(scenarios) scenarios / \(steps) snapshots with the intentional Shift-English case change.")
 
         let session = try CompositionSession()
         let client = TestClient()
