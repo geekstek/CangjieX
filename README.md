@@ -60,7 +60,7 @@ Rust 核心目前不含第三方 crate 依賴。原生編譯與共用字典結�
 
 ## 下載與安裝
 
-**V2.0.0 已完成本機安裝包建置與檢查，GitHub Release 尚待發布。** 發布後請在 [Releases](https://github.com/geekstek/CangjieX/releases) 選擇 V2.0.0，下載 `CangjieX-2.0.0-universal.pkg`。V1.x 附件屬於舊版建置路線。
+**[倉頡星 V2.0.0 已發布](https://github.com/geekstek/CangjieX/releases/tag/v2.0.0)。** [下載 Universal 安裝包](https://github.com/geekstek/CangjieX/releases/download/v2.0.0/CangjieX-2.0.0-universal.pkg)，適用於 Apple Silicon 與 Intel。Release 同時提供 SHA256 校驗檔及建置資訊；公開下載檔案已核對摘要，確認與通過 CI 的安裝包一致。V1.x 附件屬於舊版建置路線。
 
 1. 完成目前的組字，先切換到 ABC，再開啟 `.pkg`。
 2. 安裝到目前使用者的目錄，保留舊版程式、偏好與詞頻。已有早期測試版時會更新它。
