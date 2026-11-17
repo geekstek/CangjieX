@@ -1,270 +1,189 @@
-# CangjieX / 倉頡星
+# 倉頡星 CangjieX
 
-為現代 macOS 而生的開源倉頡輸入法發佈專案，基於 Yahoo! KeyKey 與 OpenVanilla，目標是把經典倉頡輸入體驗重新整理成可維護、可簽署、可發佈的 macOS 安裝包。
+**以 Swift + Rust 打造的原生 macOS 倉頡輸入法。**
 
-## 下載與安裝 V2.0.0
+倉頡星保留倉頡與簡易的輸入習慣，以 Swift 負責 macOS 系統整合與原生介面，Rust 負責查表、輸入狀態與候選排序。V2.0.0 提供 Apple Silicon 與 Intel 的 Universal 安裝包，支援 macOS 11 或更新版本。
 
-**[下載 macOS 安裝包（Apple Silicon + Intel）](https://github.com/geekstek/CangjieX/releases/download/v2.0.0/CangjieX-2.0.0-universal.pkg)** · [Release 說明與 SHA256](https://github.com/geekstek/CangjieX/releases/tag/v2.0.0)
+碼表及相容行為源自 Yahoo! KeyKey／OpenVanilla；新版使用獨立的設定與學習記錄，可與舊版並存。
 
-1. 完成組字並切到 ABC，下載並開啟 `.pkg`。支援 macOS 11 或更新版本。
-2. 安裝只更新目前使用者的 `~/Library/Input Methods/CangjieXPreview.app`，保留舊版及其設定／詞頻。
-3. 保存工作，在方便時登出並重新登入；到「系統設定 → 鍵盤 → 文字輸入 → 編輯 → ＋ → 繁體中文」加入 **倉頡星**。先前已加入測試版時，重新登入後名稱會更新，不需重複加入。
+[GitHub Releases](https://github.com/geekstek/CangjieX/releases) · [安裝說明](#下載與安裝) · [開發與建置](#開發與建置) · [協作規範](AGENTS.md)
 
-本版顯示名稱為「倉頡星」，內部沿用獨立識別以保留舊版；這是 Swift / Rust 路線的首個可下載版；跨應用實際試打仍待完整驗收。安裝包未以 Developer ID 簽署，也未經 Apple 公證；若 macOS 阻擋，確認下載來源後使用「系統設定 → 隱私權與安全性 → 仍要打開」。不用停用 Gatekeeper 或 SIP。
+## 為什麼使用 Swift + Rust？
 
-## 目前狀態
+| 設計 | 帶來的好處 |
+| --- | --- |
+| **Swift 原生系統整合** | 透過 AppKit 與 InputMethodKit 實作輸入法、候選窗及偏好設定，使用 macOS 原生控制項與淺深色外觀。 |
+| **Rust 輸入核心** | 查表、組字、選字、排序與文字轉換集中在核心，便於測試；型別與所有權檢查有助減少記憶體管理錯誤。 |
+| **原生編譯、直接呼叫** | Swift 與 Rust 在同一輸入法程序內透過 C 介面呼叫，輸入核心不需要另啟腳本引擎或連接雲端服務。 |
+| **介面與核心分工** | 調整 macOS 視窗不必改動查表規則，修改輸入行為也能先在獨立核心驗證，讓維護與升級範圍更清楚。 |
+| **可重用的跨平台核心** | Rust 核心不依賴 AppKit／InputMethodKit，為日後其他平台重用引擎打下基礎；目前提供的輸入法產品仍只有 macOS 版。 |
 
-V2.0.0 使用 Swift / AppKit / InputMethodKit 與 Rust 核心，包含倉頡、簡易、注音文校正、聯想詞、繁簡／全形輸出及候選排序學習。使用 `make migration-package` 產生 Universal 安裝包，發佈工作流程會先執行 Rust、原版行為基線及原生 Swift 檢查。
+Rust 核心目前不含第三方 crate 依賴。原生編譯與共用字典結構讓執行路徑保持精簡；實際輸入延遲、CPU 與記憶體是否優於舊版，仍需以效能量測確認。
 
-以下兩條 V1.x 建置路線保留供維護與回退：
+## 功能
 
-1. 預設路線會把既有的 Yahoo! KeyKey 輸入法 app 重新整理為 `CangjieX.app`，並輸出 `CangjieX.pkg`。底層二進制仍是舊版 Yahoo! KeyKey，因此 Apple Silicon 會依賴 Rosetta。
-2. 源碼路線會從 `YahooArchive/KeyKey` 拉取固定 commit `81e05f070c070af65cac21e8da28ca4ff2d58905` 的 BSD 授權源碼，套用現代 macOS / Xcode 相容補丁，編出 `arm64 + x86_64` universal app，再重新品牌化為 `CangjieX.pkg`。此路線仍保留，但不是 V2.0.0 的發佈產物。
+| 功能 | 說明 |
+| --- | --- |
+| **倉頡輸入** | 最多五個字根，支援即時候選、滿碼確認、退格、取消，以及 `?`／`*` 萬用字元查詢。 |
+| **簡易輸入** | 最多兩個字根，使用獨立簡易碼表；輸入設定與學習記錄和倉頡分開保存。 |
+| **依選字習慣排序** | 依同一編碼的累計選字次數調整候選順序，重新啟用或重啟後保留。 |
+| **聯想詞提示** | 選字後提供聯想候選，可用 Shift＋數字鍵或滑鼠選詞。 |
+| **繁體轉簡體** | 候選保持繁體顯示，在文字上屏時套用繁轉簡。 |
+| **全形英數字與標點** | 提供全形輸出開關及半角標點設定。 |
+| **注音文校正** | 對輸入法收到的注音文顯示替換候選，取消時保留原文。 |
+| **原生候選窗** | 跟隨系統淺深色外觀，支援鍵盤／滑鼠選字、翻頁及候選字大小設定。 |
+| **符號與偏好設定** | 可開啟 macOS 系統符號面板，並在偏好設定調整輸入、輸出、候選及提示音。 |
+| **本機處理** | 查表、轉換與排序學習均在本機完成，不需要雲端輸入服務。 |
 
-V1.x 打包過程會移除舊版安裝說明 app 與 Yahoo 更新檢查 app，避免正式發佈包攜帶已過時的 Yahoo 安裝流程與更新入口。
+### 候選排序怎樣學習？
 
-V1.x 發佈包會替換舊 Yahoo 圖示與 About 圖，使用 CangjieX / 倉頡星 的深色星空圖標系統；中文系統中輸入法顯示名稱為「倉頡星」，英文系統中顯示為「CangjieX」。
+在「偏好設定 → 輸入」啟用 **依選字習慣調整候選順序**。選字後，該編碼的選字次數會累加，並影響往後的候選排列。
 
-## 主打方向
+- 按累計次數排序，因此選一次不一定立即排到第一位。
+- 關閉後恢復碼表順序，不會刪除已保存的學習記錄；重新開啟後可繼續使用。
+- 倉頡與簡易分開保存學習記錄。簡易的原版預設為關閉學習，可在簡易模式的輸入設定開啟；既有明確設定會保留。
 
-- 倉頡核心輸入
-- 繁簡轉換
-- 聯想詞 / 關聯詞
-- 現代 macOS 安裝流程
-- Apple Silicon 發佈路線
-- 開源社群維護
+排序更新、重新啟動保留、停用及重新啟用的流程，已用隔離資料驗證。
 
-## 建置
+### 常用操作
 
-### V2.0.0 Swift / Rust 安裝包
+| 操作 | 按鍵 |
+| --- | --- |
+| 選擇普通候選 | 數字鍵，或按 Return 選擇高亮項；編號依選字設定顯示。 |
+| 空格 | 依設定與候選狀態，確認選字或翻頁。 |
+| 選擇聯想詞 | Shift＋1–9，或直接點擊詞條。 |
+| 切換全形英數字 | Shift＋Command＋Space |
+| 切換繁體轉簡體 | Control＋Command＋G |
+| 開啟系統符號面板 | Control＋Command＋`.` |
+
+注音文校正依照原版規則，一次處理收到文字中的第一個可校正字元；它不會掃描已上屏的文件，也不攔截一般剪貼簿貼上。校正候選中按 Escape 會保留原文。
+
+## 下載與安裝
+
+**V2.0.0 已完成本機安裝包建置與檢查，GitHub Release 尚待發布。** 發布後請在 [Releases](https://github.com/geekstek/CangjieX/releases) 選擇 V2.0.0，下載 `CangjieX-2.0.0-universal.pkg`。V1.x 附件屬於舊版建置路線。
+
+1. 完成目前的組字，先切換到 ABC，再開啟 `.pkg`。
+2. 安裝到目前使用者的目錄，保留舊版程式、偏好與詞頻。已有早期測試版時會更新它。
+3. 保存工作，在方便時登出並重新登入。
+4. 開啟「系統設定 → 鍵盤 → 文字輸入 → 編輯 → ＋ → 繁體中文」，加入 **倉頡星**，再從輸入選單選取。已加入早期測試版時，重新登入後名稱會更新，不需重複加入。
+
+安裝包未以 Developer ID 簽署，也未經 Apple 公證。若 macOS 阻擋，請確認下載來源及 SHA256，再到「系統設定 → 隱私權與安全性」使用「仍要打開」；不需要停用 Gatekeeper 或 SIP。
+
+### 設定與舊版保護
+
+新版顯示名稱統一為 **倉頡星**。內部保留早期測試版的獨立識別與儲存位置，讓既有設定可繼續使用，並避免覆蓋舊版。
+
+| 內容 | 位置 |
+| --- | --- |
+| 新版輸入法 | `~/Library/Input Methods/CangjieXPreview.app` |
+| 新版設定 | `~/Library/Application Support/CangjieX Preview/settings.json` |
+| 倉頡學習記錄 | `~/Library/Application Support/CangjieX Preview/frequency.json` |
+| 簡易學習記錄 | `~/Library/Application Support/CangjieX Preview/simplex-frequency.json` |
+
+舊版設定以唯讀方式載入，動態詞頻首次啟用時可唯讀匯入舊記錄；後續修改只寫入新版自己的檔案。V2 安裝包只允許目前使用者目錄，不含安裝腳本，不終止舊版程序，也不替換 `/Library/Input Methods/CangjieX.app`。
+
+舊版與新版可能同時顯示為「倉頡星」，可從「關於倉頡星」確認是否為 V2.0.0。
+
+## 驗證與目前範圍
+
+- 原版 C++、Rust 與 Swift 已比對 **95 個行為場景／441 步快照**。
+- 倉頡與簡易資料逐項對照原版 SQLite cooker，保留順序與重複記錄；原始碼及輸出摘要列於資料 manifest。
+- 原生測試涵蓋組字替換、Unicode 游標、選字、取消、生命週期、設定保存與兩種模式的學習記錄隔離。
+- 安裝包會實際展開，檢查版本、兩種架構、檔案完整性、安裝目標與 app 簽章。
+
+完整跨應用真實鍵盤驗收仍待完成；BIG-5／字型可顯示範圍過濾、舊版自訂符號分類與部分附加模組尚未遷移。Intel 切片已交叉編譯與檢查，本機實機驗證環境為 Apple Silicon。
+
+詳細操作與待驗項目見 [M3 驗收清單](migration/M3-ACCEPTANCE.md)。
+
+## 開發與建置
+
+需要 macOS、Xcode 開發工具、Python 3、Ruby（含 Minitest）及 SQLite CLI。
+
+### 準備 Rust 工具鏈
 
 ```sh
 make migration-toolchain
+```
+
+固定版本來自 [rust-toolchain.toml](migration/rust-toolchain.toml)，安裝至專案的 `.source/migration/`，不修改系統 PATH 或 shell 設定。
+
+### 執行驗證
+
+```sh
+make migration-check
+make migration-preview-check
+```
+
+前者驗證資料、原版 C++ 基線、Rust 測試、格式、Clippy 與跨語言重放；後者建置 Swift 輸入法，驗證原生組字、候選窗、偏好設定與學習保存。這兩條命令不會安裝或切換輸入源。
+
+### 產生 Universal 安裝包
+
+```sh
 CARGO_HOME="$PWD/.source/migration/cargo" RUSTUP_HOME="$PWD/.source/migration/rustup" \
   .source/migration/cargo/bin/rustup target add aarch64-apple-darwin x86_64-apple-darwin
 make migration-package
 ```
 
-產物位於 `build/migration/release/`，包括 `.pkg`、`.sha256` 與 `build-info.json`。打包使用 macOS `pkgbuild`／`productbuild`，只允許安裝至目前使用者目錄、不含安裝腳本，也不搜尋或替換舊版 app。建置會實際展開安裝包，核對兩種架構、版本、檔案摘要、目的地與 app 簽章。
+輸出位於 `build/migration/release/`：
 
-### Swift / Rust 遷移與驗證（M1 / M2 / M3 Preview）
+- `CangjieX-2.0.0-universal.pkg`：目前使用者安裝包。
+- `CangjieX-2.0.0-universal.pkg.sha256`：SHA256 校驗檔。
+- `build-info.json`：構建 commit、架構、最低系統版本及簽署狀態。
 
-`migration/` 是獨立的開發驗證路線，提供碼表、原版行為基線、Rust 輸入狀態機、Swift 橋接，以及 M3 的 InputMethodKit Preview 原型。M1 / M2 已通過基線驗證；M3 保留現有輸入設定，Preview 0.5.0 候選介面以美觀及易用為優先重新設計，原生測試通過；跨程序真實鍵盤與各應用相容性仍待人工驗收，不能視為正式替代版本。
+只做本機開發安裝時可使用 `make migration-preview-install`；先完成組字並切離新版輸入法。原生試打工具可用 `make migration-preview-test-host` 建置。
 
-首次準備 Rust 工具鏈：
+### 程式結構
 
-```sh
-make migration-toolchain
-```
+| 目錄 | 職責 |
+| --- | --- |
+| [migration/preview/](migration/preview/) | Swift／AppKit／InputMethodKit 系統整合、候選窗與偏好設定。 |
+| [migration/core/](migration/core/) | Rust 輸入核心與 C ABI 實作。 |
+| [migration/bridge/](migration/bridge/) | Swift／Rust 共用的 C 介面與所有權契約。 |
+| [migration/swift/](migration/swift/) | Swift 核心橋接與重放工具。 |
+| [migration/data/](migration/data/) | 固定來源的碼表、轉換資料、摘要及授權。 |
+| [migration/baseline/](migration/baseline/) | 原版 C++ 探針與行為快照。 |
+| [migration/tests/](migration/tests/) | 提取、基線與原生 Swift 測試。 |
+| [migration/release/](migration/release/) | 安裝說明及 Release 內容。 |
 
-這會從 Rust 官方下載固定版本的工具鏈至 `.source/migration/`，不修改系統 PATH 或 shell 設定。已有對應 Rust 工具鏈時也可直接使用。Xcode、Ruby（含 Minitest）和 SQLite CLI 需可用。
+資料可用 `make migration-extract`、`make migration-extract-modules` 及 `make migration-extract-compatibility` 重現提取；相容資料提取需要已校驗的公開發佈包快取。日常檢查不改寫碼表或快照。
 
-執行全部 M1 / M2 檢查：
+### GitHub Release
 
-```sh
-make migration-check
-```
+[Release 工作流程](.github/workflows/release.yml) 會在推送 `v2.*` 標籤時，依序執行 Linux Rust 檢查、macOS 行為與原生測試、Universal 打包與包內檢查，再上傳安裝包、SHA256 及構建資訊。
 
-此命令會在首次執行時下載並校驗固定版本的 KeyKey 源碼，之後可使用快取。快取和驗證產物分別位於 `.source/migration/`、`build/migration/`；檢查不執行安裝、卸載、服務註冊或舊版打包。既有 `build/CangjieX.pkg`、`build/source/` 和已安裝輸入法均不會被覆蓋。原有 `make clean` 仍會清除整個 `build/`，包括遷移驗證產物。
+標籤須與 [Info.plist](migration/preview/Info.plist) 的版本一致。也可手動執行工作流程，輸入相符的 `2.x.y` 版本。公開安裝包目前未接上 Developer ID 簽署與 Apple 公證。
 
-- `migration/data/manifest.json` 記錄來源 commit、CIN SHA256、輸出 SHA256 及選字鍵 metadata；`keynames.tsv` 保存字根名稱，`cangjie.tsv` 保留 82,873 筆記錄、65,732 組編碼的原始候選順序及重複項。來源說明與授權一併保留。
-- `migration/baseline/cases.json` 記錄 23 個場景、94 步快照。檢查會編譯並執行固定版本的原版 C++ 輸入模組與候選面板，比對退格、取消、五碼上限、選字、翻頁、英文與標點等行為。
-- `migration/baseline/m2-cases.json` 額外記錄 15 個原版場景、94 步快照，涵蓋候選中退格、循環翻頁、高亮邊界、一次提交候選加標點，以及問號／星號查詢。M1 快照保持不變；同一批 JSON 由原版 C++ 與 Swift → Rust 狀態機各自重放並逐步比對。
-- 基線使用原版倉頡預設、停用動態排序、垂直候選面板及接受全部字元的預設編碼服務；候選派送由最小測試程式依原版 loader 流程接線。它不是已安裝輸入法的 UI 錄製，也不代表所有使用者設定。焦點切換、應用相容與視窗定位留待 M3 的 InputMethodKit 驗收。
-- `migration/core/` 不含第三方 Rust 依賴。`Session` 實作五字根輸入、確認查表、九鍵選字、翻頁與高亮、退格與取消、英文和標點，以及萬用字元查詢；原有精確查表 API 保留。每個會話獨立，字典共用；事件快照不可變，可在後續按鍵、重置或會話釋放後繼續讀取。
-- `migration/bridge/CangjieCore.h` 定義會話、快照和 UTF-8 位元組的所有權。C 介面使用標準化按鍵而非 macOS 硬體 keycode；無效事件不改變狀態。`committed`／`beep` 是該事件的一次性效果，宿主每個事件只應套用一次。
-- Command／Control／Option 組合鍵在 M2 回傳「未消費」並保留輸入；M1 尚未記錄組字中快捷鍵的系統行為，因此此項是 M2 的明確策略，留待 M3 應用驗收。`reset` 明確取消未完成輸入，不自動上屏；失焦時應提交或取消的系統接線同樣留待 M3。
-- `migration/swift/Probe.swift` 透過 C 介面呼叫 Rust，完整比對全部編碼的候選內容、順序及重複項，並測試擴展漢字、錯誤輸入、索引邊界與結果釋放。編譯產物位於 `build/migration/swift-rust-probe`。
-- `migration/swift/SessionProbe.swift` 重放全部 95 個場景、441 步快照，另驗證會話隔離、重置、快捷鍵透傳、錯誤事件、快照生命週期及反覆建立／釋放會話。編譯產物位於 `build/migration/swift-session-probe`。
+協作時請先閱讀 [AGENTS.md](AGENTS.md)。
 
-需要重新提取固定版本碼表時執行 `make migration-extract`；日常檢查只比對，不會改寫已提交的碼表或行為快照。遷移 CI 獨立於既有發佈流程，另在 Linux 執行 Rust 核心與狀態機單元測試；全部 JSON 快照的跨語言重放在 macOS 執行。
+## V1.x 舊版建置
 
-#### M3 Preview 建置與試打
+<details>
+<summary>舊版維護與回退命令</summary>
 
-```sh
-make migration-preview-check
-make migration-preview-install
-make migration-preview-test-host
-```
+V1.x 保留兩條路線：重包既有 Yahoo! KeyKey 二進位，以及從固定版本的 C++／Objective-C 原始碼構建 Universal app。它們與 V2 的 Swift／Rust 發佈路線分開。
 
-第一條命令建置並檢查 Preview，不安裝或切換輸入源。目前共有 95 個場景、441 步快照經 `NSEvent → Swift → Rust` 重放；真正的 `NSTextView` 另驗證標記替換、擴展漢字、取消、提交、失焦及關聯詞清理。測試也驗證設定讀取、詞頻匯入／重新啟動、原始資料庫未被寫入，以及候選視窗尺寸、定位與顯示／隱藏。這些測試不等同於跨程序 IMK 驗收。
+| 命令 | 用途 |
+| --- | --- |
+| `make verify`／`make checksum` | 重包並驗證舊版，輸出 `build/CangjieX.pkg`。 |
+| `make source-patch-check` | 核對舊版原始碼補丁清單。 |
+| `make probe-source` | 檢查固定上游原始碼工程。 |
+| `make source-checksum` | 構建並驗證舊版原始碼路線，輸出 `build/source/CangjieX.pkg` 與構建資訊。 |
+| `make doctor` | 檢查本機開發工具；make 無法執行時可直接使用 `./tools/doctor.sh`。 |
 
-Preview 每次啟用時先只讀取舊版 `com.yahoo.KeyKey.Generic-cj-cin` 與 `com.yahoo.KeyKey` 設定，套用即時查字、滿碼確認、錯碼保留、空格選字、動態排序、半角標點、繁轉簡及聯想詞。之後套用 Preview 獨立保存的選項覆蓋；按鍵處理只讀取記憶體中的設定，不逐鍵讀寫舊版偏好。M1 / M2 的預設 profile 保持不變；`m3-live-cases.json` 新增目前設定下的 19 個原版場景／104 步，`m3-full-cases.json` 再新增原版聯想詞與繁轉簡流程的 11 個場景／50 步。候選顯示仍是繁體，繁轉簡只在上屏時套用，學習記錄保留原始候選字。
+舊版補丁見 [manifest.tsv](tools/source-patches/manifest.tsv)。既有二進位重包在 Apple Silicon 上依賴 Rosetta，與舊版原始碼構建的 Universal app 不同。
 
-動態詞頻首次啟用時透過 SQLite 的 **READONLY** 模式讀取舊紀錄，往後只寫入 `~/Library/Application Support/CangjieX Preview/frequency.json`，不更新舊資料庫。每次重新啟用會話載入 Preview 已學習的次序。舊版偏好也不會被 Preview 改寫。
+**V1.x 安裝／卸載會操作系統目錄中的舊輸入法，不能用來安裝 V2 或當作 V2 的清理步驟。** `build.sh`、`uninstall.sh` 及相關腳本保留供舊版維護使用。
 
-Preview 0.3.0 的垂直候選窗採用 macOS 淺深色配色、細框圓角、平面高亮及 17pt 預設字體；舊版明確設定的字體高度與高亮色仍保留，高亮文字依背景選用黑／白以保持對比。序號與提示使用次要層級，聯想詞標題為「聯想詞」，旁邊完整顯示 `⇧ 1–9` 等當頁快捷鍵。翻頁區統一放在底部，單頁隱藏，末頁保留高度以穩定按鈕位置；長詞限制視窗寬度並以省略號及完整工具提示呈現。普通候選與聯想詞都可直接點擊；聯想詞點擊透過與 Shift＋數字鍵相同的 Rust 路徑追加後綴。原有鍵盤操作繼續與各 profile 的原版快照比對，滑鼠選聯想詞是這版新增的體驗改進。
+`make clean` 會清除整個 `build/`，包括 V2 的安裝包與驗證產物。
 
-Preview 0.4.0 新增輸入選單：聯想詞、繁轉簡及全形英數字開關，並保留舊版快捷鍵 `⇧⌘Space`、`⌃⌘G`。符號入口使用 macOS 系統符號面板（`⌃⌘.`），不是舊版自訂符號分類。原生偏好視窗分為輸入、輸出、候選與提示三頁，包含輸入選項、候選字大小與提示音；變更只存至 `~/Library/Application Support/CangjieX Preview/settings.json`，不改寫舊版。輸入選項在目前組字結束後套用，避免清掉未完成字根。全形轉換放在 Rust 輸出過濾階段，包含舊版引號與括號規則，原有鍵盤基線不變。Preview 0.5.0 已接上簡易與注音文校正，見下述行為與驗收邊界。
+</details>
 
-Preview 0.5.0 在選單與偏好中提供「倉頡／簡易」切換及「注音文校正」開關。簡易使用原版 `simplex-ext.cin` 的 63,234 筆記錄／706 組編碼，最多兩個字根；其輸入選項、學習記錄與倉頡分離，讀取舊版簡易設定仍為唯讀，自有學習檔案為 `simplex-frequency.json`。切換輸入方式會等目前組字完成，不會直接丟棄字根；未明確覆寫的簡易選項採用簡易自身的原版預設及舊設定。
+## 資料來源與授權
 
-注音文校正保留原版 around filter 的規則：處理輸入法流程收到的 Unicode 文字，對第一個可校正字元顯示候選，數字鍵／Return／滑鼠選擇替換；Escape、系統提交或停用保留原文，一次上屏。它不是全文校對，也不攔截剪貼簿貼上或改寫已上屏內容；原版表雖含多字鍵，處理器仍按字元搜尋，這個行為保持不變。文字與游標經 Rust／C／Swift 傳回，以 Unicode scalar 到 UTF-16 的轉換保護擴展字元。原生測試涵蓋未完成組字保護、取消、滑鼠及生命週期；各應用真正的 Unicode 文字交付仍需實際驗收。
+碼表與相容行為參考 [Yahoo! KeyKey／OpenVanilla](https://github.com/YahooArchive/KeyKey)，固定來源、摘要與筆數見：
 
-`modules-manifest.json` 記錄兩份原始表的固定 commit、SHA256、筆數與輸出摘要；`make migration-extract-modules` 可重現提取。檢查將兩份表逐項對照原版 SQLite cooker，並新增 `simplex-cases.json`、`simplex-full-cases.json`、`correction-cases.json` 共 27 個原版場景／99 步；原有 68 個場景／342 步保持不變。基線使用接受全部 Unicode 的編碼服務，不涵蓋舊版 BIG-5 或字型可顯示範圍過濾。
+- [倉頡碼表 manifest](migration/data/manifest.json)
+- [簡易與注音文校正 manifest](migration/data/modules-manifest.json)
+- [標點、繁簡與聯想詞 manifest](migration/data/compatibility-manifest.json)
 
-系統回調與 Return 按鍵分開：按 Return 仍由 Rust 選字；系統 `commitComposition` 依舊版 loader 排除 reading buffer，清除尚未上屏的字根。`deactivateServer` 若先收到系統提交便不再插入內容；若直接收到停用回調，則依舊版自發提交路徑將當時顯示的字根文字交還客戶端，隨後清理狀態。聯想詞提示不屬於未完成組字，提交／停用都只隱藏提示。這部分已按原版 macOS loader 源碼接線並以 NSTextView 驗證，仍需逐應用確認回調先後次序。
-
-半角標點與繁轉簡資料來自固定 commit 的原始碼；聯想詞資料取自既有 Yahoo! KeyKey 發佈包的公開 `KeyKey.db`，不是使用者資料庫。`migration/data/compatibility-manifest.json` 保存來源、SHA256、行數及輸出摘要，授權一併打包。`make migration-extract-compatibility` 可從固定源碼與 `.source/Yahoo! KeyKey.app` 的已校驗資料庫重新提取；一般檢查與 CI 使用已提交、帶摘要的表，不下載二進制發佈包。
-
-安裝只寫入 `~/Library/Input Methods/CangjieXPreview.app`，沿用獨立的 `io.github.geekstek.inputmethod.CangjieXPreview` 標識、連線及程序名稱，不呼叫舊版安裝／卸載腳本。更新時須先切離 Preview，避免遺失未完成組字。原型為本機 ad-hoc 簽署、當前主機架構建置；未公證；V2.0.0 發佈包由上述獨立打包路線產生。
-
-在「系統設定 → 鍵盤 → 文字輸入 → 編輯 → 加入 → 繁體中文」加入 **倉頡星**。測試程式位於 `build/migration/preview/CangjieX Preview Test.app`，使用 macOS 文字與輸入源 API；「使用舊版」與「使用 Preview」都透過系統輸入源切換，不直接呼叫 Rust。
-
-完整的自动检查结果、逐步试打操作、应用矩阵和差异记录模板见 [M3 Preview 验收清单](migration/M3-ACCEPTANCE.md)。请先完成快速检查，再记录焦点切换、光标定位和连续使用；不需要重置旧版词频或重装旧版。
-
-**驗收限制（2026-11-17）：** 使用者已回報能試用 Preview。桌面自動按鍵在新舊輸入源中都產生原始英文字母，因此目前無法用該自動化可靠判定 IMK 路由或取得實際選字回調；先前推斷的註冊快取原因未獲確認。現有證據是原版 C++ 快照對照、原生 NSTextView／候選視窗測試與只讀資料保護；完整系統試打仍待真實鍵盤驗收。這次聚焦倉頡輸入與候選面板，已提供倉頡基本設定；尚未移植完整舊版設定視窗及計算機等附加模組。
-
-### 既有 KeyKey 建置
-
-安裝 Xcode Command Line Tools 後執行：
-
-```sh
-./build.sh
-```
-
-也可以使用 make：
-
-```sh
-make verify
-```
-
-若遇到 Xcode、git、pkgbuild 相關錯誤，可以先跑環境體檢：
-
-```sh
-make doctor
-```
-
-如果 `make` 本身也報 `xcrun` / `libxcrun` 錯誤，請直接執行：
-
-```sh
-./tools/doctor.sh
-```
-
-需要同時產生校驗檔時：
-
-```sh
-make checksum
-```
-
-輸出檔案：
-
-```text
-build/CangjieX.pkg
-```
-
-建置後可以跑發佈前檢查：
-
-```sh
-./verify-pkg.sh build/CangjieX.pkg
-```
-
-預設會產生未簽署的 pkg，適合本機測試。正式發佈請使用 Developer ID 憑證：
-
-```sh
-APP_SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
-INSTALLER_SIGN_IDENTITY="Developer ID Installer: Your Name (TEAMID)" \
-./build.sh
-```
-
-公眾下載版本還應提交 Apple notarization 並 stapling：
-
-```sh
-xcrun notarytool submit build/CangjieX.pkg --keychain-profile "notarytool-profile" --wait
-xcrun stapler staple build/CangjieX.pkg
-```
-
-## GitHub Release
-
-推送版本 tag 會自動建置 source-built `CangjieX.pkg` 到 GitHub Releases：
-
-```sh
-git tag v1.0.1
-git push origin v1.0.1
-```
-
-也可以在 GitHub Actions 頁面手動執行 `Release` workflow，輸入版本號即可。版本號必須使用 `x.y.z` 數字格式，例如 `1.0.1`。
-
-目前 CI 發佈的是未簽署 pkg。若要公開給一般使用者下載，建議後續在 Actions 補上 Developer ID 憑證匯入、簽名與 notarization。
-
-## 源碼構建探測
-
-若要檢查上游 Yahoo! KeyKey 源碼工程：
-
-```sh
-make probe-source
-```
-
-這會在 `/tmp/CangjieX-upstream-source` 拉取固定的 `YahooArchive/KeyKey` 上游 commit，列出 Xcode project 與 target。源碼補丁清單集中在：
-
-```text
-tools/source-patches/manifest.tsv
-```
-
-清單記錄每個構建補丁的 id、類型、目標檔案與用途；`tools/probe-upstream-source.sh` 會在套用補丁時檢查清單，避免新增補丁但忘記登記。若要臨時測試其他上游版本，可以用 `SOURCE_UPSTREAM_COMMIT=... make probe-source`，正式發佈仍建議先固定 commit 並更新補丁清單。
-
-若只想檢查補丁清單與 source 構建腳本是否同步：
-
-```sh
-make source-patch-check
-```
-
-若已安裝完整 Xcode，可以進一步嘗試：
-
-```sh
-PROBE_BUILD=1 make probe-source
-```
-
-若要直接產生 Apple Silicon 原生 source-built pkg：
-
-```sh
-make source-checksum
-```
-
-這會輸出源碼安裝包：
-
-```text
-build/source/CangjieX.pkg
-```
-
-同時會輸出 `build/source/source-build-info.txt`，記錄 pkg SHA256、上游 commit、補丁清單 SHA256 與構建環境，方便日後排查不同發佈包的來源。
-
-源碼路線會額外檢查輸入法主程式包含 `arm64`、最低系統版本不高於 macOS 11.0，並確認 `KeyKey.db` 內含倉頡碼表與繁體聯想詞資料。聯想詞會由 `tools/common-associated-phrases.txt` 的倉頡星高頻詞、固定版本 Jieba 繁體大詞典、固定版本 OpenCC 詞組資料與上游開放詞庫重新產生，並在打包時檢查常用候選順序與簡體字混入。由於目前仍有 DotMacKit、SQLite SEE/CEROD 與部分舊安全驗證路徑的 probe-only 替代實作，智慧注音與舊加密使用者資料庫仍不作為發佈重點。
-
-預設穩定包仍輸出到：
-
-```text
-build/CangjieX.pkg
-```
-
-這樣測試源碼包失敗時，可以重新安裝穩定包恢復輸入法。
-
-## 安裝行為
-
-安裝包會安裝到：
-
-```text
-/Library/Input Methods/CangjieX.app
-```
-
-安裝前會移除舊的 `/Library/Input Methods/CangjieX.app` 與 `/Library/Input Methods/Yahoo! KeyKey.app`，避免同一套舊輸入法服務被 macOS 重複註冊。這不會刪除使用者詞庫或偏好資料。
-
-安裝：
-
-```sh
-sudo installer -pkg CangjieX.pkg -target /
-```
-
-安裝成功後請登出再登入。重新登入後，到「系統設定 > 鍵盤 > 文字輸入 > 編輯」，在中文輸入法中加入「倉頡星」；英文系統中可能顯示為「CangjieX」。
-
-如果安裝後列表中仍沒有看到「倉頡星 / CangjieX」，請先確認安裝的是最新 `CangjieX.pkg`，然後再登出登入一次。macOS 輸入法服務常需要重新登入才會刷新。
-
-卸載：
-
-```sh
-./uninstall.sh
-```
-
-## 授權
-
-Yahoo! KeyKey 原始碼由 Yahoo! Inc. 以 BSD 3-Clause License 釋出。本專案保留原始授權聲明，並以 CangjieX / 倉頡星 名義進行社群維護與發佈。
+Yahoo! KeyKey 原始碼採 BSD 3-Clause 授權；本專案保留原始授權聲明。隨附資料與轉換程式的授權見 [LICENSE.KeyKey.txt](migration/data/LICENSE.KeyKey.txt) 與 [LICENSE.HanConvert.txt](migration/data/LICENSE.HanConvert.txt)。
