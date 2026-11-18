@@ -66,13 +66,11 @@ Rust 核心目前不含第三方 crate 依賴。原生編譯與共用字典結�
 
 ## 下載與安裝
 
-**V2.0.5 發布準備中**：日常用字、候選字型備援與診斷摘要修正。以下連結仍指向已驗證的 V2.0.4，待新版公開附件核對完成後更新。
-
 V2.0.2 新增原生安裝器：開啟 `.dmg` 內的「倉頡星安裝器」，先完成組字、切換到 ABC 並結束系統設定，再按「安裝並啟用」。安裝期間保持 ABC；只有實際執行版本、構建識別及輸入源啟用都通過核對，才會顯示完成。設定、詞頻、已安裝的 V1 舊版及其他輸入法會保留。
 
 手動 `.pkg` 僅寫入檔案，會明確要求登出並重新登入；看到磁碟版本更新，不代表正在執行的程序已換新。V2.0.0／V2.0.1 的安裝後流程同樣需要重新登入。
 
-**[倉頡星 V2.0.4 已發布](https://github.com/geekstek/CangjieX/releases/tag/v2.0.4)。** 推薦[下載 Universal 原生安裝器（.dmg）](https://github.com/geekstek/CangjieX/releases/download/v2.0.4/CangjieX-2.0.4-universal.dmg)，適用於 Apple Silicon 與 Intel；亦提供[手動安裝包（.pkg，安裝後須重新登入）](https://github.com/geekstek/CangjieX/releases/download/v2.0.4/CangjieX-2.0.4-universal.pkg)。Release 附有各自的 SHA256 校驗檔及建置資訊，公開下載檔案已核對摘要、版本及構建提交。先前 V2 與 V1.x Release 保留供回退。
+**[倉頡星 V2.0.5 已發布](https://github.com/geekstek/CangjieX/releases/tag/v2.0.5)。** 推薦[下載 Universal 原生安裝器（.dmg）](https://github.com/geekstek/CangjieX/releases/download/v2.0.5/CangjieX-2.0.5-universal.dmg)，適用於 Apple Silicon 與 Intel；亦提供[手動安裝包（.pkg，安裝後須重新登入）](https://github.com/geekstek/CangjieX/releases/download/v2.0.5/CangjieX-2.0.5-universal.pkg)。Release 附有各自的 SHA256 校驗檔及建置資訊，公開下載檔案已核對摘要、版本及構建提交。先前 V2 與 V1.x Release 保留供回退。
 
 1. 開啟 `.dmg` 內的「倉頡星安裝器」。完成組字、切換 ABC，並結束系統設定。
 2. 按「安裝並啟用」，安裝期間保持 ABC。只更新目前使用者的 V2，保留設定與詞頻。
