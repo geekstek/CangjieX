@@ -36,7 +36,7 @@ with open(sys.argv[2],'w') as f: json.dump(identity,f);f.write('\n')
 with open(sys.argv[3],'w') as f:
     f.write('enum CompiledRuntimeBuild { static let version = '+json.dumps(version)+'; static let buildID = '+json.dumps(identity['buildID'])+' }\n')
 PY
-maintenance_sources=(migration/preview/RuntimeVersion.swift migration/preview/UpgradeActivation.swift migration/preview/InstallUI.swift migration/preview/InputSourceMaintenance.swift migration/preview/UninstallUI.swift)
+maintenance_sources=(migration/preview/RuntimeDiagnostics.swift migration/preview/DiagnosticReport.swift migration/preview/DiagnosticsUI.swift migration/preview/RuntimeVersion.swift migration/preview/UpgradeActivation.swift migration/preview/InstallUI.swift migration/preview/InputSourceMaintenance.swift migration/preview/UninstallUI.swift)
 sources=("${maintenance_sources[@]}" migration/preview/LegacySettings.swift migration/preview/PreviewSettings.swift migration/swift/EngineSession.swift migration/preview/CompositionSession.swift
          migration/preview/CandidateWindow.swift migration/preview/PreviewInputController.swift)
 PREVIEW_ARCHS="${PREVIEW_ARCHS:-$(uname -m)}"

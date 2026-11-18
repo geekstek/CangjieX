@@ -5,16 +5,16 @@ enum UninstallUI {
         let alert = NSAlert()
         alert.alertStyle = .warning
         alert.messageText = "解除安裝倉頡星？"
-        alert.informativeText = "將移除目前使用者帳戶的倉頡星 V2 程式、輸入來源及安裝記錄，並切換到 ABC。舊版及其他輸入法會保留。\n\n勾選下方選項，也會永久刪除你的輸入設定與學習記錄。"
+        alert.informativeText = "將移除目前使用者帳戶的倉頡星 V2 程式、輸入來源及安裝記錄，並切換到 ABC。舊版及其他輸入法會保留。\n\n勾選下方選項，也會永久刪除你的輸入設定、學習與診斷記錄。"
         alert.addButton(withTitle: "解除安裝").hasDestructiveAction = true
         let cancel = alert.addButton(withTitle: "取消")
         alert.window.defaultButtonCell = cancel.cell as? NSButtonCell
         cancel.keyEquivalent = "\r"
         cancel.keyEquivalentModifierMask = []
         alert.buttons[0].keyEquivalent = ""
-        let option = NSButton(checkboxWithTitle: "一併刪除設定與學習記錄（無法復原）", target: nil, action: nil)
+        let option = NSButton(checkboxWithTitle: "一併刪除設定、學習與診斷記錄（無法復原）", target: nil, action: nil)
         option.state = .on
-        option.setAccessibilityLabel("一併刪除設定與學習記錄，無法復原")
+        option.setAccessibilityLabel("一併刪除設定、學習與診斷記錄，無法復原")
         alert.accessoryView = option
         return alert
     }
@@ -52,7 +52,7 @@ enum UninstallUI {
 
     static func launch(prepare: () throws -> Void) throws -> Process {
         let bundle = Bundle.main.bundleURL.standardizedFileURL
-        guard bundle == InputSourceMaintenance.appURL(home: FileManager.default.homeDirectoryForCurrentUser).standardizedFileURL else {
+        guard InputSourceMaintenance.isInstalledLocation(bundle) else {
             throw InputSourceMaintenance.Failure(message: "請從已安裝的倉頡星選單執行解除安裝；開發副本不會移除日常安裝。")
         }
         let helper = try stageHelper(from: bundle)
@@ -150,14 +150,18 @@ enum UninstallUI {
 final class PreviewAboutWindow: NSWindowController {
     static let shared = PreviewAboutWindow()
     let uninstallButton = NSButton(title: "解除安裝倉頡星…", target: nil, action: nil)
+    let diagnosticsButton = NSButton(title: "診斷與修復…", target: nil, action: nil)
     private var prepare: () throws -> Void = {}
     private var operation: Process?
     private let launch: (() throws -> Void) throws -> Process
+    private let diagnosticsLaunch: () throws -> Process
 
     init(version: String = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "",
-         launch: @escaping (() throws -> Void) throws -> Process = UninstallUI.launch) {
+         launch: @escaping (() throws -> Void) throws -> Process = UninstallUI.launch,
+         diagnosticsLaunch: @escaping () throws -> Process = DiagnosticsUI.launch) {
         self.launch = launch
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 440, height: 280), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        self.diagnosticsLaunch = diagnosticsLaunch
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 440, height: 320), styleMask: [.titled, .closable], backing: .buffered, defer: false)
         window.title = "關於倉頡星"
         window.isReleasedWhenClosed = false
         super.init(window: window)
@@ -191,6 +195,12 @@ final class PreviewAboutWindow: NSWindowController {
         description.font = .systemFont(ofSize: 13)
         description.widthAnchor.constraint(equalToConstant: 380).isActive = true
         root.addArrangedSubview(description)
+        diagnosticsButton.bezelStyle = .rounded
+        diagnosticsButton.target = self
+        diagnosticsButton.action = #selector(diagnostics(_:))
+        diagnosticsButton.widthAnchor.constraint(equalToConstant: 380).isActive = true
+        diagnosticsButton.setAccessibilityLabel("診斷與修復倉頡星，開啟獨立工具")
+        root.addArrangedSubview(diagnosticsButton)
         let separator = NSBox()
         separator.boxType = .separator
         separator.widthAnchor.constraint(equalToConstant: 380).isActive = true
@@ -226,20 +236,30 @@ final class PreviewAboutWindow: NSWindowController {
     @objc private func closeAbout(_ sender: Any?) { close() }
 
     @objc private func uninstall(_ sender: Any?) {
+        startOperation(title: "無法開始解除安裝") { try launch(prepare) }
+    }
+
+    @objc private func diagnostics(_ sender: Any?) {
+        startOperation(title: "無法開始診斷") { try diagnosticsLaunch() }
+    }
+
+    private func startOperation(title: String, action: () throws -> Process) {
         guard operation == nil else { return }
         do {
-            let process = try launch(prepare)
+            let process = try action()
             operation = process
             uninstallButton.isEnabled = false
+            diagnosticsButton.isEnabled = false
             process.terminationHandler = { [weak self] _ in
                 DispatchQueue.main.async {
                     self?.operation = nil
                     self?.uninstallButton.isEnabled = true
+                    self?.diagnosticsButton.isEnabled = true
                 }
             }
         } catch {
             let alert = NSAlert()
-            alert.messageText = "無法開始解除安裝"
+            alert.messageText = title
             alert.informativeText = error.localizedDescription
             alert.addButton(withTitle: "好")
             if let window { alert.beginSheetModal(for: window) }

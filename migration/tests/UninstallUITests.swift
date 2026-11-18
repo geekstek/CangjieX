@@ -9,13 +9,19 @@ struct UninstallUITests {
     static func main() throws {
         let app = NSApplication.shared
         app.setActivationPolicy(.accessory)
+        app.finishLaunching()
+        if CommandLine.arguments.contains("--diagnostics-preview") {
+            _ = DiagnosticsUI.runChoice(DiagnosticsUI.introduction())
+            print("Diagnostics preview closed; no diagnostics export or recovery was executed.")
+            return
+        }
         if CommandLine.arguments.contains("--confirmation-preview") {
             let result = UninstallUI.runConfirmation(UninstallUI.confirmation())
             print("Preview confirmation response: \(result.rawValue). No uninstall action is executed in this test host.")
             return
         }
         if CommandLine.arguments.contains("--about-preview") || Bundle.main.bundleIdentifier == "io.github.geekstek.cangjiex.uninstall-visual-check" {
-            let window = PreviewAboutWindow(version: "2.0.1", launch: { _ in
+            let window = PreviewAboutWindow(version: "2.0.4", launch: { _ in
                 let alert = UninstallUI.confirmation()
                 _ = UninstallUI.runConfirmation(alert)
                 // UI preview is deliberately disconnected from the real maintenance tool.
@@ -66,6 +72,59 @@ struct UninstallUITests {
         RunLoop.current.run(until: Date().addingTimeInterval(0.5))
         try check(about.uninstallButton.isEnabled, "Cancel/exit should allow retry")
         about.close()
+
+        var diagnosticsLaunches = 0
+        let diagnosticsAbout = PreviewAboutWindow(version: "2.0.4", launch: { _ in
+            throw InputSourceMaintenance.Failure(message: "Unexpected uninstall dispatch")
+        }, diagnosticsLaunch: {
+            diagnosticsLaunches += 1
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/bin/sleep")
+            process.arguments = ["0.1"]
+            try process.run()
+            return process
+        })
+        diagnosticsAbout.present()
+        diagnosticsAbout.diagnosticsButton.performClick(nil)
+        diagnosticsAbout.diagnosticsButton.performClick(nil)
+        try check(diagnosticsLaunches == 1 && !diagnosticsAbout.uninstallButton.isEnabled && !diagnosticsAbout.diagnosticsButton.isEnabled,
+                  "Diagnostics launch is not independent or double-click guarded")
+        RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+        try check(diagnosticsAbout.diagnosticsButton.isEnabled && diagnosticsAbout.uninstallButton.isEnabled, "Diagnostics tool exit did not allow retry")
+        let output = URL(fileURLWithPath: "build/migration/maintenance")
+        for (name, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
+            let content = diagnosticsAbout.window!.contentView!
+            content.appearance = NSAppearance(named: appearance)
+            content.needsLayout = true
+            content.layoutSubtreeIfNeeded()
+            diagnosticsAbout.window!.display()
+            try check(diagnosticsAbout.diagnosticsButton.frame.width > 300 && diagnosticsAbout.diagnosticsButton.frame.height >= 18, "About diagnostics control was never laid out")
+            try check(content.bounds.contains(diagnosticsAbout.diagnosticsButton.convert(diagnosticsAbout.diagnosticsButton.bounds, to: content)), "About diagnostics button is clipped")
+            let bitmap = content.bitmapImageRepForCachingDisplay(in: content.bounds)!
+            content.cacheDisplay(in: content.bounds, to: bitmap)
+            try bitmap.representation(using: .png, properties: [:])!.write(to: output.appendingPathComponent("diagnostics-about-\(name).png"))
+            let alert = DiagnosticsUI.introduction()
+            alert.window.appearance = NSAppearance(named: appearance)
+            alert.layout()
+            let view = alert.window.contentView!
+            view.layoutSubtreeIfNeeded()
+            let image = view.bitmapImageRepForCachingDisplay(in: view.bounds)!
+            view.cacheDisplay(in: view.bounds, to: image)
+            try image.representation(using: .png, properties: [:])!.write(to: output.appendingPathComponent("diagnostics-dialog-\(name).png"))
+            try check(alert.buttons.count == 3 && alert.window.defaultButtonCell === alert.buttons[2].cell,
+                      "Diagnostic dialog should default to close, not mutate input sources")
+            alert.window.close()
+        }
+        diagnosticsAbout.close()
+        let closeChoice = DiagnosticsUI.introduction()
+        DispatchQueue.main.async {
+            let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
+                windowNumber: closeChoice.window.windowNumber, context: nil, characters: "\u{1b}",
+                charactersIgnoringModifiers: "\u{1b}", isARepeat: false, keyCode: 53)!
+            NSApp.postEvent(event, atStart: true)
+        }
+        try check(DiagnosticsUI.runChoice(closeChoice) == .alertThirdButtonReturn, "Escape must close diagnostics without a repair or export")
+        closeChoice.window.close()
 
         let temporary = FileManager.default.temporaryDirectory.appendingPathComponent("cjx-stage-test-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: temporary) }

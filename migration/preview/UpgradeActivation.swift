@@ -53,30 +53,44 @@ enum UpgradeActivation {
         _ = try InputSourceMaintenance.run("/usr/bin/codesign", ["--verify", "--strict", app.path])
         if probeInstalled(at: app)?.identity == identity {
             // Even a healthy process can coexist with old menu/panel metadata.
-            try InputSourceMaintenance.preflight()
-            _ = try InputSourceMaintenance.run(InputSourceMaintenance.registrar, ["-f", app.path])
-            guard TISRegisterInputSource(app as CFURL) == noErr else {
-                throw InputSourceMaintenance.Failure(message: "新版程序已執行，但註冊尚未更新；請重新登入完成啟用。")
-            }
-            try InputSourceMaintenance.refreshCatalog(clearShared: false)
+            try refreshRegistration(at: app)
         }
         return try complete(expected: identity, preflight: InputSourceMaintenance.preflight, restart: {
+            RuntimeDiagnostics.shared.record(.restartRequested)
             try InputSourceMaintenance.preflight()
             try InputSourceMaintenance.execute("repair")
             _ = try InputSourceMaintenance.run("/usr/bin/open", ["-g", "-j", app.path])
         }, probe: {
             probeInstalled(at: app)
-        }, enable: {
-            guard let source = InputSourceMaintenance.sources(InputSourceMaintenance.identifier).first else { return false }
-            guard TISEnableInputSource(source) == noErr else { return false }
-            for _ in 0..<5 {
-                if TISSelectInputSource(source) == noErr {
-                    let current = TISCopyCurrentKeyboardInputSource().takeRetainedValue()
-                    if InputSourceMaintenance.sourceProperty(current, kTISPropertyInputSourceID) as? String == InputSourceMaintenance.identifier { return true }
-                }
-                Thread.sleep(forTimeInterval: 0.1)
+        }, enable: selectInstalledSource)
+    }
+
+    static func refreshRegistration(at app: URL) throws {
+        try InputSourceMaintenance.preflight()
+        _ = try InputSourceMaintenance.run(InputSourceMaintenance.registrar, ["-f", app.path])
+        let status = TISRegisterInputSource(app as CFURL)
+        guard status == noErr else {
+            RuntimeDiagnostics.shared.record(.registrationFailed, status: status)
+            throw InputSourceMaintenance.Failure(message: "新版程序已執行，但註冊尚未更新；請重新登入完成啟用。")
+        }
+        try InputSourceMaintenance.refreshCatalog(clearShared: false)
+        RuntimeDiagnostics.shared.record(.registryRefreshed, state: DiagnosticState.capture())
+    }
+
+    static func selectInstalledSource() -> Bool {
+        guard let source = InputSourceMaintenance.sources(InputSourceMaintenance.identifier).first else { return false }
+        let enableStatus = TISEnableInputSource(source)
+        guard enableStatus == noErr else { RuntimeDiagnostics.shared.record(.selectionFailed, status: enableStatus); return false }
+        var lastStatus: OSStatus = noErr
+        for _ in 0..<5 {
+            lastStatus = TISSelectInputSource(source)
+            if lastStatus == noErr {
+                let current = TISCopyCurrentKeyboardInputSource().takeRetainedValue()
+                if InputSourceMaintenance.sourceProperty(current, kTISPropertyInputSourceID) as? String == InputSourceMaintenance.identifier { return true }
             }
-            return false
-        })
+            Thread.sleep(forTimeInterval: 0.1)
+        }
+        RuntimeDiagnostics.shared.record(.selectionFailed, state: DiagnosticState.capture(), status: lastStatus)
+        return false
     }
 }

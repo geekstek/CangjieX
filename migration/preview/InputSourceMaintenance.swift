@@ -26,6 +26,10 @@ enum InputSourceMaintenance {
         home.appendingPathComponent("Library/Input Methods/CangjieXPreview.app")
     }
 
+    static func isInstalledLocation(_ bundle: URL, home: URL = FileManager.default.homeDirectoryForCurrentUser) -> Bool {
+        bundle.standardizedFileURL.path == appURL(home: home).standardizedFileURL.path
+    }
+
     static func validateApp(_ app: URL) throws {
         // Never follow a replacement link into another app or another user's files.
         for url in [app.deletingLastPathComponent(), app, app.appendingPathComponent("Contents")] {
@@ -51,6 +55,16 @@ enum InputSourceMaintenance {
         let bytes = pipe.fileHandleForReading.readDataToEndOfFile()
         task.waitUntilExit()
         guard task.terminationStatus == 0 else {
+            let event: DiagnosticEvent
+            switch executable {
+            case "/usr/bin/codesign": event = .signatureCheckFailed
+            case registrar: event = .registryCommandFailed
+            case "/bin/ps": event = .processCommandFailed
+            case "/usr/bin/open": event = .launchCommandFailed
+            case "/usr/sbin/installer": event = .packageCommandFailed
+            default: event = .maintenanceCommandFailed
+            }
+            RuntimeDiagnostics.shared.record(event, status: task.terminationStatus)
             throw Failure(message: "維護指令失敗：\(URL(fileURLWithPath: executable).lastPathComponent)（\(task.terminationStatus)）")
         }
         return String(decoding: bytes, as: UTF8.self)
@@ -228,7 +242,7 @@ enum InputSourceMaintenance {
         var parent = target.deletingLastPathComponent().standardizedFileURL
         let root = home.standardizedFileURL
         guard parent.path.hasPrefix(root.path + "/") else { throw Failure(message: "拒絕刪除使用者目錄以外的資料。") }
-        while parent != root {
+        while parent.path != root.path {
             if let attributes = try? FileManager.default.attributesOfItem(atPath: parent.path),
                attributes[.type] as? FileAttributeType == .typeSymbolicLink {
                 throw Failure(message: "資料目錄包含符號連結，未刪除：\(parent.path)")
@@ -293,6 +307,13 @@ enum InputSourceMaintenance {
         let home = FileManager.default.homeDirectoryForCurrentUser
         let app = appURL(home: home)
         switch command {
+        case "diagnose":
+            print(try DiagnosticReport.export().path)
+        case "recover":
+            let result = try DiagnosticReport.recoverInstalled()
+            print(result.message)
+            guard result.active else { throw Failure(message: result.message) }
+            print("已核對系統選用狀態，請實際試打確認。修復前後診斷已保留，設定與詞頻未刪除。")
         case "activate":
             let result = try UpgradeActivation.activateInstalled()
             print(result.message)
@@ -373,7 +394,7 @@ enum InputSourceMaintenance {
             print(command == "repair" ? "已刷新倉頡星註冊與選單。" : "已移除目前使用者的 V2 輸入法與安裝記錄；" + (deleteData ? "設定及詞頻已刪除。" : "設定及詞頻保留。"))
             print("請重新開啟系統設定，核對已加入與可加入清單，並打開右上角選單驗證。若仍顯示舊資料，請保存工作後登出並重新登入。")
         default:
-            throw Failure(message: "用法：CangjieXMaintenance status | check | repair | uninstall")
+            throw Failure(message: "用法：CangjieXMaintenance status | check | activate | diagnose | recover | diagnostics-dialog | repair | uninstall")
         }
     }
 }
@@ -382,8 +403,22 @@ enum InputSourceMaintenance {
 @main
 struct MaintenanceMain {
     static func main() {
+        let deletingData = CommandLine.arguments.contains("--delete-data") && CommandLine.arguments.dropFirst().contains(where: { ["uninstall", "verify-uninstall"].contains($0) })
+        if !deletingData {
+            let app = InputSourceMaintenance.appURL(home: FileManager.default.homeDirectoryForCurrentUser)
+            RuntimeDiagnostics.shared.configure(role: .maintenance, identity: try? UpgradeActivation.installedIdentity(at: app))
+            RuntimeDiagnostics.shared.record(.startup)
+            RuntimeDiagnostics.shared.flush()
+        }
+        defer { RuntimeDiagnostics.shared.flush() }
         if Bundle.main.bundleIdentifier == "io.github.geekstek.cangjiex.installer" {
             exit(InstallUI.run(bundle: Bundle.main))
+        }
+        if CommandLine.arguments.count == 1 || CommandLine.arguments == [CommandLine.arguments[0], "diagnostics-dialog"] {
+            let status = DiagnosticsUI.runDialog()
+            RuntimeDiagnostics.shared.flush()
+            UninstallUI.removeTemporaryHelper()
+            exit(status)
         }
         if CommandLine.arguments == [CommandLine.arguments[0], "uninstall-dialog"] {
             let status = UninstallUI.runDialog()
@@ -392,10 +427,12 @@ struct MaintenanceMain {
         }
         do {
             guard CommandLine.arguments.count == 2 || (CommandLine.arguments.count == 3 && CommandLine.arguments[2] == "--delete-data") else {
-                throw InputSourceMaintenance.Failure(message: "用法：CangjieXMaintenance status | check | repair | uninstall [--delete-data]")
+                throw InputSourceMaintenance.Failure(message: "用法：CangjieXMaintenance status | check | activate | diagnose | recover | diagnostics-dialog | repair | uninstall [--delete-data]")
             }
             try InputSourceMaintenance.execute(CommandLine.arguments[1], deleteData: CommandLine.arguments.count == 3)
         } catch {
+            RuntimeDiagnostics.shared.record(.recoveryFailed)
+            RuntimeDiagnostics.shared.flush()
             FileHandle.standardError.write(Data("\(error.localizedDescription)\n".utf8))
             exit(1)
         }

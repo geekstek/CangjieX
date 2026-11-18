@@ -33,6 +33,8 @@ V2 開發、測試與發布均須保留舊版：
 - 新版設定與學習資料只寫入 `~/Library/Application Support/CangjieX Preview/`。倉頡、簡易的輸入選項及學習記錄必須隔離。
 - 測試使用暫存 home、暫存 SQLite 及合成記錄，不以日常使用者資料做選字、重置、寫入或排序實驗。
 - 不在日誌輸出使用者輸入、候選內容、學習記錄或憑證。
+- 診斷使用 `RuntimeDiagnostics.swift` 的固定欄位與事件分類；不得加入任意訊息、NSError 描述或原始系統／當機記錄。正常輸入不逐鍵寫檔，記錄必須有大小／數量上限，測試使用未配置的 singleton 或暫存 home。
+- `diagnose` 僅讀取狀態並輸出本機報告；`recover` 必須先留存報告、確認 ABC／無組字／非安全輸入／系統設定已關閉，優先刷新，必要時僅重啟一次。喚醒後的自動刷新不得切換、啟用或重啟輸入法，且須有冷卻與過期保護。
 - V2 工作不呼叫舊版 `build.sh`／`uninstall.sh` 作安裝或清理。它們有替換系統輸入法的行為，只適用於明確的 V1.x 維護工作。
 - 開發安裝使用現有 `tools/install-migration-preview.sh` 保護，先完成組字並切離新版。單純建置或驗證不應更改使用者輸入源。
 - 註冊、修復及 V2 卸載使用 `InputSourceMaintenance.swift`／`tools/maintain-migration-input-source.sh`。維護前切離新版並結束系統設定；卸載預設保留設定與詞頻。只有已確認 app 不存在、TIS 也無來源的舊識別碼才可從系統輸入源清單移除，不改寫舊版 app 或偏好。

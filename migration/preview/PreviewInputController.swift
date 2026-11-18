@@ -19,10 +19,23 @@ final class PreviewInputController: IMKInputController {
     private var settings = PreviewSettingsStore.shared.settings
     private lazy var composition: CompositionSession? = makeComposition()
     private func makeComposition() -> CompositionSession? {
-        try? CompositionSession(flags: settings.flags,
-            learningStore: settings.flags & UInt32(CJX_OPT_DYNAMIC_FREQUENCY) != 0
-                ? (settings.flags & UInt32(CJX_OPT_SIMPLEX) != 0 ? .simplex : .shared) : nil)
+        do {
+            return try CompositionSession(flags: settings.flags,
+                learningStore: settings.flags & UInt32(CJX_OPT_DYNAMIC_FREQUENCY) != 0
+                    ? (settings.flags & UInt32(CJX_OPT_SIMPLEX) != 0 ? .simplex : .shared) : nil)
+        } catch {
+            RuntimeDiagnostics.shared.record(.engineCreationFailed, status: Self.diagnosticCode(error))
+            return nil
+        }
     }
+    private static func diagnosticCode(_ error: Error) -> Int32? {
+        guard let error = error as? EngineError else { return nil }
+        switch error { case .status(let code): return code; case .invalidSnapshot: return -3 }
+    }
+    private func updateDiagnosticActivity() {
+        DiagnosticCompositionActivity.shared.update(self, pending: composition?.snapshot.markedText.isEmpty == false)
+    }
+    deinit { DiagnosticCompositionActivity.shared.update(self, pending: false) }
     private var candidates: CandidateWindow?
     private let logger = Logger(subsystem: "io.github.geekstek.inputmethod.CangjieXPreview", category: "Input")
 
@@ -30,7 +43,9 @@ final class PreviewInputController: IMKInputController {
 
     private func resolveClient(_ sender: Any?) -> (any IMKTextInput)? {
         if let client = sender as? any IMKTextInput { inputClient = client }
-        return inputClient ?? client()
+        let resolved = inputClient ?? client()
+        if resolved == nil { RuntimeDiagnostics.shared.record(.clientUnavailable) }
+        return resolved
     }
 
     override func handle(_ event: NSEvent!, client sender: Any!) -> Bool {
@@ -80,6 +95,12 @@ final class PreviewInputController: IMKInputController {
     }
 
     private func dispatch(client: any IMKTextInput, action: (CompositionSession) throws -> EngineSnapshot) -> Bool {
+        let start = ProcessInfo.processInfo.systemUptime
+        defer {
+            updateDiagnosticActivity()
+            let elapsed = ProcessInfo.processInfo.systemUptime - start
+            if elapsed > 0.25 { RuntimeDiagnostics.shared.record(.slowInput, milliseconds: Int(elapsed * 1000)) }
+        }
         _ = refreshSettings()
         guard let composition else { NSSound.beep(); return false }
         do {
@@ -93,6 +114,7 @@ final class PreviewInputController: IMKInputController {
         } catch {
             // Never log user input or candidate text.
             logger.error("Preview input engine failed")
+            RuntimeDiagnostics.shared.record(.engineEventFailed, status: Self.diagnosticCode(error))
             NSSound.beep()
             return false
         }
@@ -120,27 +142,37 @@ final class PreviewInputController: IMKInputController {
     }
 
     override func activateServer(_ sender: Any!) {
+        RuntimeDiagnostics.shared.record(.controllerActivated)
         guard let client = resolveClient(sender) else { return }
-        try? composition?.cancel(client: IMKCompositionClient(client: client))
+        do { try composition?.cancel(client: IMKCompositionClient(client: client)) }
+        catch { RuntimeDiagnostics.shared.record(.compositionFailed, status: Self.diagnosticCode(error)) }
         settingsStore.reloadInheritedSettings()
         settings = settingsStore.settings
         composition = makeComposition()
+        updateDiagnosticActivity()
         candidates?.hide()
     }
 
     override func deactivateServer(_ sender: Any!) {
-        defer { candidates?.hide() }
+        RuntimeDiagnostics.shared.record(.controllerDeactivated)
+        defer { candidates?.hide(); updateDiagnosticActivity() }
         guard let client = resolveClient(sender) else { return }
-        try? composition?.deactivate(client: IMKCompositionClient(client: client))
+        do { try composition?.deactivate(client: IMKCompositionClient(client: client)) }
+        catch { RuntimeDiagnostics.shared.record(.compositionFailed, status: Self.diagnosticCode(error)) }
     }
 
     override func commitComposition(_ sender: Any!) {
-        defer { candidates?.hide() }
+        defer { candidates?.hide(); updateDiagnosticActivity() }
         guard let client = resolveClient(sender) else { return }
-        try? composition?.commit(client: IMKCompositionClient(client: client))
+        do { try composition?.commit(client: IMKCompositionClient(client: client)) }
+        catch { RuntimeDiagnostics.shared.record(.compositionFailed, status: Self.diagnosticCode(error)) }
     }
 
-    override func inputControllerWillClose() { candidates?.hide() }
+    override func inputControllerWillClose() {
+        candidates?.hide()
+        DiagnosticCompositionActivity.shared.update(self, pending: false)
+        RuntimeDiagnostics.shared.record(.controllerClosed)
+    }
     override func hidePalettes() { candidates?.hide() }
 
     override func menu() -> NSMenu! {
@@ -174,6 +206,7 @@ final class PreviewInputController: IMKInputController {
                 refreshSettings()
             } catch {
                 logger.error("Could not save Preview settings")
+                RuntimeDiagnostics.shared.record(.settingsFailed)
                 NSSound.beep()
             }
         case .symbols:
@@ -184,6 +217,7 @@ final class PreviewInputController: IMKInputController {
             PreviewAboutWindow.shared.present { [weak self] in
                 guard let self, let client = self.inputClient else { return }
                 try self.composition?.commit(client: IMKCompositionClient(client: client))
+                self.updateDiagnosticActivity()
                 self.candidates?.hide()
             }
         }

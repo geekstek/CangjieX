@@ -18,6 +18,7 @@ struct InputSourceMaintenanceTests {
     }
 
     static func main() throws {
+        try DiagnosticsTests.run()
         let m = InputSourceMaintenance.self
         try m.checkSafety(selected: "com.apple.keylayout.ABC", running: [], uid: getuid())
         for id in m.ownedIDs {

@@ -9,8 +9,8 @@
     <key>tsInputMethodIconFileKey</key><string>PreviewMenu.icns</string>
     <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
     <key>CFBundlePackageType</key><string>APPL</string>
-    <key>CFBundleVersion</key><string>20003</string>
-    <key>CFBundleShortVersionString</key><string>2.0.3</string>
+    <key>CFBundleVersion</key><string>20004</string>
+    <key>CFBundleShortVersionString</key><string>2.0.4</string>
     <key>LSMinimumSystemVersion</key><string>11.0</string>
     <key>LSBackgroundOnly</key><true/>
     <key>NSPrincipalClass</key><string>NSApplication</string>

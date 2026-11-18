@@ -10,6 +10,7 @@ struct RuntimeVersionReply: Codable {
     let nonce: String
     let identity: RuntimeBuildIdentity
     let pid: Int32
+    var pendingComposition: Bool? = nil
 }
 
 final class RuntimeVersionServer {
@@ -26,7 +27,8 @@ final class RuntimeVersionServer {
             guard message == 1, let data, CFDataGetLength(data) <= 128, let info,
                   let nonce = String(data: data as Data, encoding: .utf8), UUID(uuidString: nonce) != nil else { return nil }
             let server = Unmanaged<RuntimeVersionServer>.fromOpaque(info).takeUnretainedValue()
-            let reply = RuntimeVersionReply(nonce: nonce, identity: server.identity, pid: getpid())
+            var reply = RuntimeVersionReply(nonce: nonce, identity: server.identity, pid: getpid())
+            reply.pendingComposition = DiagnosticCompositionActivity.shared.hasPending
             guard let bytes = try? JSONEncoder().encode(reply) else { return nil }
             return Unmanaged.passRetained(bytes as CFData)
         }, &context, nil)
