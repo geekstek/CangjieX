@@ -1,0 +1,25 @@
+{
+  "name": "TW-Sung-Plus-98_1",
+  "release": "2026-05-05",
+  "provider": "Ministry of Digital Affairs, Taiwan",
+  "license": "OGDL-Taiwan-1.0",
+  "homepage": "https://www.cns11643.gov.tw",
+  "dataset": "https://data.gov.tw/dataset/5961",
+  "official_archive_url": "https://data.cns11643.gov.tw/opendata/Fonts_Sung.zip",
+  "mirror_repository": "https://github.com/free-fonts-npm/TW-CNS11643-Fonts",
+  "mirror_commit": "de5bd2e37371798f996bac11ea8cf9d3a411749e",
+  "source_path": "2026-05-05/Fonts_Sung/TW-Sung-Plus-98_1.ttf",
+  "modified": false,
+  "coverage": "CNS11643 legacy private-use Plane 15 glyphs",
+  "verified_cns_mappings": {
+    "FBAA4": "14-3643",
+    "FC1B8": "13-6753",
+    "FCA34": "13-426D"
+  },
+  "files": {
+    "LICENSE.txt": "6fb1f786e1d278b6240b4816ba791d48fc84223e35da8a9263e42836bc154e94",
+    "NOTICE.txt": "43eaa4b141d636e91c86f15dcd09cbed89ea56023763beb60de33b5d068ff061",
+    "TW-Sung-Plus-98_1.ttf": "f7989df6a707bc11a75e9995654741b1a4b748aa61b4c6d254434e7a0f771450",
+    "font-readme.txt": "d759ab7f089edebf536346305abc3fb947af780ddc20e73c1941ae753692dfe3"
+  }
+}

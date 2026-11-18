@@ -78,7 +78,7 @@ pub unsafe extern "C" fn cjx_session_new_configured(flags: u32, output: *mut *mu
     }
     // SAFETY: caller provides a writable slot.
     unsafe { output.write(ptr::null_mut()) };
-    if flags & !4095 != 0 {
+    if flags & !8191 != 0 {
         return -1;
     }
     let options = SessionOptions {
@@ -94,11 +94,34 @@ pub unsafe extern "C" fn cjx_session_new_configured(flags: u32, output: *mut *mu
         fullwidth_output: flags & 512 != 0,
         simplex: flags & 1024 != 0,
         bopomofo_correction: flags & 2048 != 0,
+        daily_characters: flags & 4096 != 0,
     };
     let session = Session::configured(options, Learning::default());
     // SAFETY: caller provides a writable slot.
     unsafe { output.write(Box::into_raw(Box::new(session))) };
     0
+}
+
+/// Copy Unicode coverage into an idle session; invalid input leaves it unchanged.
+/// # Safety
+/// Session must be live/exclusive. Bitmap must span `length` readable bytes,
+/// disjoint from the session. Data is copied and remains owned by the caller.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn cjx_session_set_character_coverage(
+    session: *mut Session,
+    bitmap: *const u8,
+    length: usize,
+) -> i32 {
+    if session.is_null() || bitmap.is_null() || length != 0x110000 / 8 {
+        return -1;
+    }
+    // SAFETY: validated pointers and readable span follow the caller contract.
+    let (session, bitmap) = unsafe { (&mut *session, std::slice::from_raw_parts(bitmap, length)) };
+    if session.set_character_coverage(bitmap) {
+        0
+    } else {
+        -1
+    }
 }
 
 /// Import one learned row; data is copied and unknown dictionary entries are ignored.
@@ -365,6 +388,49 @@ mod tests {
     use super::*;
 
     #[test]
+    fn character_coverage_abi_rejects_invalid_spans_and_pending_updates_without_mutation() {
+        let bytes = vec![0xff; 0x110000 / 8];
+        let mut session = Session::configured(
+            SessionOptions {
+                daily_characters: true,
+                ..SessionOptions::default()
+            },
+            Learning::default(),
+        );
+        // SAFETY: sessions and buffers below are live; rejected null pointers are never dereferenced.
+        unsafe {
+            assert_eq!(
+                cjx_session_set_character_coverage(ptr::null_mut(), bytes.as_ptr(), bytes.len()),
+                -1
+            );
+            assert_eq!(
+                cjx_session_set_character_coverage(&mut session, ptr::null(), bytes.len()),
+                -1
+            );
+            assert_eq!(
+                cjx_session_set_character_coverage(&mut session, bytes.as_ptr(), bytes.len() - 1),
+                -1
+            );
+            assert_eq!(
+                cjx_session_set_character_coverage(&mut session, bytes.as_ptr(), bytes.len()),
+                0
+            );
+            session.handle(KeyEvent::new(Key::Character(b'a')));
+            assert_eq!(
+                cjx_session_set_character_coverage(&mut session, bytes.as_ptr(), bytes.len()),
+                -1
+            );
+            assert_eq!(
+                session
+                    .handle(KeyEvent::new(Key::Space))
+                    .candidates
+                    .as_ref(),
+                ["日", "曰"]
+            );
+        }
+    }
+
+    #[test]
     fn direct_text_validates_utf8_and_owns_unicode_composition_after_session_free() {
         // SAFETY: inputs cover their declared lengths and each owned handle is freed once.
         unsafe {
@@ -416,7 +482,7 @@ mod tests {
         // SAFETY: owned handles and readable byte literals; each allocation freed once.
         unsafe {
             let mut session = ptr::null_mut();
-            assert_eq!(cjx_session_new_configured(4096, &mut session), -1);
+            assert_eq!(cjx_session_new_configured(8192, &mut session), -1);
             assert!(session.is_null());
             assert_eq!(cjx_session_new_configured(107, &mut session), 0);
             assert_eq!(

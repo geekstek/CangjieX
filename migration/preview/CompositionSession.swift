@@ -13,7 +13,8 @@ final class CompositionSession {
     private let learningStore: PreviewLearningStore?
     init(flags: UInt32? = nil, learningStore: PreviewLearningStore? = nil) throws {
         self.learningStore = learningStore
-        engine = try RustSession(flags: flags, frequencies: learningStore?.entries ?? [])
+        engine = try RustSession(flags: flags, frequencies: learningStore?.entries ?? [],
+            characterCoverage: (flags ?? 0) & UInt32(CJX_OPT_DAILY_CHARACTERS) != 0 ? SystemCharacterCoverage.bitmap : nil)
     }
 
     @discardableResult

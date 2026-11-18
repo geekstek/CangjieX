@@ -44,11 +44,17 @@ struct EngineSnapshot: Equatable {
 final class RustSession {
     private let handle: OpaquePointer
 
-    init(flags: UInt32? = nil, frequencies: [FrequencyEntry] = []) throws {
+    init(flags: UInt32? = nil, frequencies: [FrequencyEntry] = [], characterCoverage: [UInt8]? = nil) throws {
         var pointer: OpaquePointer?
         let status = flags.map { cjx_session_new_configured($0, &pointer) } ?? cjx_session_new(&pointer)
         guard status == 0, let pointer else { throw EngineError.status(status) }
         handle = pointer
+        if let characterCoverage {
+            let status = characterCoverage.withUnsafeBufferPointer {
+                cjx_session_set_character_coverage(pointer, $0.baseAddress, $0.count)
+            }
+            guard status == 0 else { throw EngineError.status(status) }
+        }
         for row in frequencies where row.isValid {
             let code = Array(row.code.utf8), text = Array(row.text.utf8)
             let status = code.withUnsafeBufferPointer { code in

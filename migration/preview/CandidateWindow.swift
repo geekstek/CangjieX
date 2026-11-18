@@ -1,4 +1,59 @@
 import AppKit
+import CoreText
+
+final class CandidateTypography {
+    static let bundled = CandidateTypography(directory: Bundle.main.resourceURL?.appendingPathComponent("Fonts"))
+    private let directory: URL?
+
+    init(directory: URL?) {
+        self.directory = directory
+    }
+
+    private lazy var fallbacks: [(font: CTFont, coverage: CFCharacterSet)] = {
+        ["Jigmo/Jigmo2.ttf", "CNS11643/TW-Sung-Plus-98_1.ttf"].compactMap { name in
+            guard let url = directory?.appendingPathComponent(name),
+                  let descriptors = CTFontManagerCreateFontDescriptorsFromURL(url as CFURL) as? [CTFontDescriptor],
+                  let descriptor = descriptors.first else { return nil }
+            let font = CTFontCreateWithFontDescriptor(descriptor, 17, nil)
+            return (font, CTFontCopyCharacterSet(font))
+        }
+    }()
+
+    func text(_ string: String, size: CGFloat) -> NSAttributedString {
+        let paragraph = NSMutableParagraphStyle(); paragraph.lineBreakMode = .byTruncatingTail
+        let result = NSMutableAttributedString(string: string, attributes: [
+            .font: NSFont.systemFont(ofSize: size), .paragraphStyle: paragraph,
+        ])
+        let runs = CTLineGetGlyphRuns(CTLineCreateWithAttributedString(result)) as! [CTRun]
+        // Keep the normal system cascade; only replace its missing-glyph runs.
+        for run in runs.sorted(by: { CTRunGetStringRange($0).location > CTRunGetStringRange($1).location }) {
+            let attributes = CTRunGetAttributes(run) as NSDictionary
+            guard let font = attributes[kCTFontAttributeName] else { continue }
+            guard CTFontCopyPostScriptName(font as! CTFont) as String == "LastResort" else { continue }
+            let range = CTRunGetStringRange(run)
+            let original = (string as NSString).substring(with: NSRange(location: range.location, length: range.length))
+            let replacement = NSMutableAttributedString(string: "")
+            for character in original {
+                let part = String(character)
+                if let fallback = fallbacks.first(where: { fallback in part.unicodeScalars.allSatisfy {
+                    CFCharacterSetIsLongCharacterMember(fallback.coverage, $0.value)
+                        || (0xFE00...0xFE0F).contains($0.value) || (0xE0100...0xE01EF).contains($0.value)
+                } }) {
+                    replacement.append(NSAttributedString(string: part, attributes: [
+                        .font: CTFontCreateCopyWithAttributes(fallback.font, size, nil, nil), .paragraphStyle: paragraph,
+                    ]))
+                } else {
+                    let code = part.unicodeScalars.map { String(format: "U+%04X", $0.value) }.joined(separator: " ")
+                    replacement.append(NSAttributedString(string: "[\(code)]", attributes: [
+                        .font: NSFont.systemFont(ofSize: size), .paragraphStyle: paragraph,
+                    ]))
+                }
+            }
+            result.replaceCharacters(in: NSRange(location: range.location, length: range.length), with: replacement)
+        }
+        return result
+    }
+}
 
 private final class CandidatePanel: NSPanel {
     override var canBecomeKey: Bool { false }
@@ -16,8 +71,7 @@ private final class CandidateBackground: NSStackView {
 private final class CandidateButton: NSButton {
     var selected = false
     var keyLabel = ""
-    var candidate = ""
-    var fontSize: CGFloat = 17
+    var candidate = NSAttributedString(string: "")
     var selectionColor = NSColor.controlAccentColor
     private var hovered = false
     private var hoverArea: NSTrackingArea?
@@ -48,24 +102,24 @@ private final class CandidateButton: NSButton {
         let keyHeight = (keyLabel as NSString).size(withAttributes: keyAttributes).height
         (keyLabel as NSString).draw(in: NSRect(x: 6, y: (bounds.height - keyHeight) / 2, width: 20, height: keyHeight),
                                     withAttributes: keyAttributes)
-        let textParagraph = NSMutableParagraphStyle(); textParagraph.lineBreakMode = .byTruncatingTail
-        let attributes: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: fontSize),
-            .foregroundColor: foreground, .paragraphStyle: textParagraph]
-        let height = (candidate as NSString).size(withAttributes: attributes).height
-        (candidate as NSString).draw(in: NSRect(x: 34, y: (bounds.height - height) / 2, width: bounds.width - 42, height: height),
-                                    withAttributes: attributes)
+        let text = NSMutableAttributedString(attributedString: candidate)
+        text.addAttribute(.foregroundColor, value: foreground, range: NSRange(location: 0, length: text.length))
+        let height = text.size().height
+        text.draw(in: NSRect(x: 34, y: (bounds.height - height) / 2, width: bounds.width - 42, height: height))
     }
 }
 
 final class CandidateWindow {
     private let panel: NSPanel
     private let stack = CandidateBackground()
+    private let typography: CandidateTypography
     private var choose: ((Int) -> Void)?
     private var turnPage: ((Bool) -> Void)?
     var isVisible: Bool { panel.isVisible }
     var frame: NSRect { panel.frame }
 
-    init() {
+    init(typography: CandidateTypography = .bundled) {
+        self.typography = typography
         panel = CandidatePanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.isFloatingPanel = true
         panel.hidesOnDeactivate = false
@@ -104,8 +158,8 @@ final class CandidateWindow {
         self.choose = choose
         self.turnPage = turnPage
         for view in stack.arrangedSubviews { stack.removeArrangedSubview(view); view.removeFromSuperview() }
-        let font = NSFont.systemFont(ofSize: settings.fontSize)
-        let textWidth = snapshot.candidates.map { ($0 as NSString).size(withAttributes: [.font: font]).width }.max() ?? 17
+        let texts = snapshot.candidates.map { typography.text($0, size: settings.fontSize) }
+        let textWidth = texts.map { $0.size().width }.max() ?? 17
         let title = snapshot.correction ? "注音文校正" : "聯想詞"
         let shortcut = "\(snapshot.correction ? "" : "⇧ ")1–\(snapshot.candidates.count)"
         let smallFont = NSFont.systemFont(ofSize: 11, weight: .medium)
@@ -149,11 +203,14 @@ final class CandidateWindow {
             button.selected = selected
             button.keyLabel = settings.flags & UInt32(CJX_OPT_SPACE_SELECTS_FIRST) != 0 && !snapshot.associated && !snapshot.correction
                 ? (index == 0 ? "␣" : "\(index)") : "\(index + 1)"
-            button.candidate = text
-            button.fontSize = settings.fontSize
+            button.candidate = texts[index]
             button.selectionColor = settings.highlight
             button.setAccessibilityLabel("\(snapshot.associated ? "Shift 加 " : "")\(button.keyLabel)，\(text)\(selected ? "，已選取" : "")")
             button.toolTip = "\(text) · \(snapshot.associated ? "⇧ " : "")\(button.keyLabel)"
+            if texts[index].string != text {
+                button.setAccessibilityLabel("\(button.accessibilityLabel() ?? text)，缺少字形，\(texts[index].string)")
+                button.toolTip = "缺少字形：\(texts[index].string) · 選取後仍輸出原字"
+            }
             sizeView(button, height: rowHeight)
             stack.addArrangedSubview(button)
         }

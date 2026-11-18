@@ -1,0 +1,5 @@
+# Preserve upstream font/notice bytes for their pinned SHA256 manifests.
+/assets/fonts/**/*.ttf binary
+/assets/fonts/Jigmo/*.txt -text -whitespace
+/assets/fonts/CNS11643/LICENSE.txt -text -whitespace
+/assets/fonts/CNS11643/font-readme.txt -text -whitespace

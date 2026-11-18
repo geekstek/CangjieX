@@ -95,8 +95,46 @@ enum DiagnosticsTests {
         try check(!String(decoding: exported, as: UTF8.self).contains(secret), "Diagnostic export included input, arbitrary fields or raw crash contents")
         let decoded = try JSONDecoder().decode(DiagnosticReport.Report.self, from: exported)
         try check(decoded.crashes.count == 1 && decoded.crashes[0].kind == .crash && !decoded.manualTypingVerified, "Crash summary or unverified manual typing claim is wrong")
+        try check(decoded.crashes[0].role == .inputMethod && decoded.crashes[0].version == nil
+                  && decoded.crashes[0].timeSource == .fileMetadata, "Unknown crash metadata was guessed")
         let reports = try FileManager.default.contentsOfDirectory(at: report.deletingLastPathComponent(), includingPropertiesForKeys: nil)
         try check(reports.count == 3, "Report retention is not bounded")
+
+        try FileManager.default.setAttributes([.modificationDate: Date(timeIntervalSince1970: 1_000_000_000)], ofItemAtPath: crash.path)
+        for index in 0..<6 {
+            let name = index.isMultiple(of: 2) ? "CangjieXPreview-" : "CangjieXMaintenance-"
+            let target = crashRoot.appendingPathComponent("\(name)fixture-\(index).ips")
+            let header: [String: Any] = ["app_version": index == 5 ? secret : "0.1.0", "build_version": "2"]
+            let body: [String: Any] = ["captureTime": "2026-11-18 12:00:0\(index).1234 +0800", "pid": index + 100,
+                "exception": ["type": "EXC_BAD_ACCESS"], "asi": secret,
+                "bundleInfo": ["CFBundleShortVersionString": index == 5 ? secret : "2.0.4", "CFBundleVersion": index == 5 ? secret : "7"]]
+            try (JSONSerialization.data(withJSONObject: header) + Data([10]) + JSONSerialization.data(withJSONObject: body)).write(to: target)
+            // Neither the process-name prefix nor a copied file's modification time is crash chronology.
+            try FileManager.default.setAttributes([.modificationDate: Date(timeIntervalSince1970: index == 0 ? 2_000_000_000 : 1_000_000_000)], ofItemAtPath: target.path)
+        }
+        let crashes = DiagnosticReport.crashes(home: home)
+        try check(crashes.count == 5 && crashes.map(\.time) == crashes.map(\.time).sorted(by: >)
+                  && crashes[0].role == .maintenance && crashes[1].role == .inputMethod
+                  && crashes.allSatisfy { $0.timeSource == .report } && crashes[0].pid == 105,
+                  "Crash retention did not follow report timestamps across both roles")
+        try check(crashes[0].version == nil && crashes[0].build == "2" && crashes[1].version == "2.0.4"
+                  && crashes[1].build == "7", "Crash versions were lost, guessed or copied without validation")
+        try check(!String(decoding: try JSONEncoder().encode(crashes), as: UTF8.self).contains(secret), "Raw crash metadata leaked")
+        let oldCrash = try JSONDecoder().decode(DiagnosticReport.Crash.self, from: Data("{\"time\":1,\"kind\":\"badAccess\"}".utf8))
+        try check(oldCrash.role == nil && oldCrash.version == nil && oldCrash.timeSource == nil, "Historical crash summaries stopped decoding")
+
+        let commandHome = root.appendingPathComponent("command-context")
+        RuntimeDiagnostics.shared.configure(role: .maintenance, identity: nil, home: commandHome)
+        RuntimeDiagnostics.shared.record(.maintenanceCommandFailed, state: state(selection: .own), command: .check)
+        RuntimeDiagnostics.shared.record(.maintenanceCommandFailed, command: DiagnosticCommand(rawValue: secret) ?? .invalid)
+        RuntimeDiagnostics.shared.flush()
+        let commands = try DiagnosticJournal(home: commandHome).records()
+        try check(commands.count == 2 && commands[0].event == .maintenanceCommandFailed
+                  && commands[0].command == .check && commands[0].state?.selection == .own
+                  && commands[1].command == .invalid, "Maintenance failure lost its safe command/state classification")
+        try check(!String(decoding: try JSONEncoder().encode(commands), as: UTF8.self).contains(secret), "Command arguments leaked into diagnostics")
+        try check(try JSONDecoder().decode(DiagnosticRecord.self, from: JSONEncoder().encode(record())).command == nil,
+                  "Existing diagnostic records no longer decode")
 
         let throttledHome = root.appendingPathComponent("throttle")
         RuntimeDiagnostics.shared.configure(role: .maintenance, identity: nil, home: throttledHome)

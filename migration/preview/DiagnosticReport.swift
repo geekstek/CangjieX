@@ -20,8 +20,14 @@ enum DiagnosticReport {
     }
     struct Crash: Codable {
         enum Kind: String, Codable { case badAccess, crash, guardViolation, breakpoint, resource, badInstruction, unknown }
+        enum TimeSource: String, Codable { case report, fileMetadata }
         let time: Date
         let kind: Kind
+        var role: DiagnosticRecord.Role? = nil
+        var version: String? = nil
+        var build: String? = nil
+        var timeSource: TimeSource? = nil
+        var pid: Int32? = nil
     }
     struct Report: Codable {
         let schema: Int
@@ -86,16 +92,40 @@ enum DiagnosticReport {
         let files = (try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: [.contentModificationDateKey, .fileSizeKey, .isRegularFileKey, .isSymbolicLinkKey])) ?? []
         let kinds: [String: Crash.Kind] = ["EXC_BAD_ACCESS": .badAccess, "EXC_CRASH": .crash, "EXC_GUARD": .guardViolation,
                                            "EXC_BREAKPOINT": .breakpoint, "EXC_RESOURCE": .resource, "EXC_BAD_INSTRUCTION": .badInstruction]
-        return files.filter { ($0.lastPathComponent.hasPrefix("CangjieXPreview-") || $0.lastPathComponent.hasPrefix("CangjieXMaintenance-")) && $0.pathExtension == "ips" }
-            .sorted { $0.lastPathComponent > $1.lastPathComponent }.prefix(5).compactMap { file in
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSSSSS Z"
+        formatter.isLenient = false
+        func date(_ value: Any?) -> Date? {
+            guard let value = value as? String, value.count <= 64,
+                  value.unicodeScalars.allSatisfy({ "0123456789-+: .".unicodeScalars.contains($0) }) else { return nil }
+            return formatter.date(from: value)
+        }
+        func version(_ value: Any?) -> String? {
+            guard let value = value as? String, value.count <= 32,
+                  value.range(of: "^[0-9]+(?:\\.[0-9]+){0,3}$", options: .regularExpression) != nil else { return nil }
+            return value
+        }
+        let summaries: [Crash] = files.filter { ($0.lastPathComponent.hasPrefix("CangjieXPreview-") || $0.lastPathComponent.hasPrefix("CangjieXMaintenance-")) && $0.pathExtension == "ips" }
+            .compactMap { file in
                 guard let values = try? file.resourceValues(forKeys: [.contentModificationDateKey, .fileSizeKey, .isRegularFileKey, .isSymbolicLinkKey]),
                       values.isSymbolicLink == false, values.isRegularFile == true, let size = values.fileSize, size < 2 * 1024 * 1024,
                       let time = values.contentModificationDate, let bytes = try? Data(contentsOf: file),
                       let separator = bytes.firstIndex(of: 10),
                       let body = try? JSONSerialization.jsonObject(with: bytes.suffix(from: bytes.index(after: separator))) as? [String: Any] else { return nil }
                 let type = (body["exception"] as? [String: Any])?["type"] as? String ?? ""
-                return Crash(time: time, kind: kinds[type] ?? .unknown)
+                let header = (try? JSONSerialization.jsonObject(with: bytes.prefix(upTo: separator))) as? [String: Any]
+                let info = body["bundleInfo"] as? [String: Any]
+                let reportedTime = date(body["captureTime"]) ?? date(header?["timestamp"])
+                return Crash(time: reportedTime ?? time, kind: kinds[type] ?? .unknown,
+                    role: file.lastPathComponent.hasPrefix("CangjieXPreview-") ? .inputMethod : .maintenance,
+                    version: version(info?["CFBundleShortVersionString"]) ?? version(header?["app_version"]),
+                    build: version(info?["CFBundleVersion"]) ?? version(header?["build_version"]),
+                    timeSource: reportedTime == nil ? .fileMetadata : .report,
+                    pid: (body["pid"] as? Int).flatMap { $0 > 0 ? Int32(exactly: $0) : nil })
             }
+        return Array(summaries.sorted { $0.time > $1.time }.prefix(5))
     }
 
     static func export(home: URL = FileManager.default.homeDirectoryForCurrentUser, includeSystemLog: Bool = true) throws -> URL {

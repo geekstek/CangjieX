@@ -1,0 +1,18 @@
+{
+  "name": "Jigmo2",
+  "version": "2025-09-12",
+  "author": "Koichi Kamichi and GlyphWiki contributors",
+  "license": "CC0-1.0",
+  "homepage": "https://kamichikoichi.github.io/jigmo/",
+  "archive_url": "https://kamichikoichi.github.io/jigmo/Jigmo-20250912.zip",
+  "archive_sha1_published": "2fb963ee7bba1d23ccfe81b228422f22da9dc574",
+  "archive_sha256": "5744c7386d129475d87607ca66d043c8793c65448adeaedc921b6931890e5d0b",
+  "modified": false,
+  "coverage": "CJK Extensions B, C, D, E, F, I and Compatibility Ideographs Supplement",
+  "files": {
+    "Jigmo2.ttf": "5da3582efe77e22073b86b3b86b556d7111148a76b957cfb53318a91da2efff0",
+    "LICENSE.txt": "437ca31a127c9f1b191ff9a42bb563e5f7e414ae819006dca4635d9fb34aeb94",
+    "README.txt": "9e21785d64d317da46f270c33f464be36ef20d1bfa30f07f5de27a1d1567162f",
+    "THANKS.txt": "e50087723cb3b8fbfaca220398b15014ec0073104449b97fc1f60485331921f6"
+  }
+}

@@ -21,6 +21,7 @@ struct LegacySettings {
             ("UseDynamicFrequency", !simplex, CJX_OPT_DYNAMIC_FREQUENCY),
             ("UseSpaceAsFirstCandidateSelectionKey", false, CJX_OPT_SPACE_SELECTS_FIRST),
             ("SendFirstCandidateWithSpaceWithOnePageList", !simplex, CJX_OPT_SPACE_SELECTS_ONE_PAGE),
+            ("UseDailyCharacters", true, CJX_OPT_DAILY_CHARACTERS),
         ]
         var flags = options.reduce(UInt32(0)) { enabled($1.0, $1.1) ? $0 | UInt32($1.2) : $0 }
         if module["UseOverrideTable"] as? String == "Punctuations-cj-halfwidth-cin" {
@@ -55,7 +56,7 @@ struct LegacySettings {
     }
 
     init(base: LegacySettings, enabled: UInt32, disabled: UInt32, fontSize: Double?, playErrorSound: Bool?) {
-        flags = (base.flags | (enabled & 4095)) & ~(disabled & 4095)
+        flags = (base.flags | (enabled & 8191)) & ~(disabled & 8191)
         self.fontSize = fontSize.flatMap { $0.isFinite ? CGFloat(min(96, max(16, $0))) : nil } ?? base.fontSize
         highlight = base.highlight
         self.playErrorSound = playErrorSound ?? base.playErrorSound

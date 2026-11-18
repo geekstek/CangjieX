@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import InputMethodKit
+import CoreText
 
 private enum TestFailure: Error { case failed(String) }
 
@@ -153,6 +154,51 @@ private enum PreviewTests {
         try verifyCandidateLearning()
         if CommandLine.arguments.contains("--learning-only") { return }
         try verifyShiftEnglishCase()
+        let daily = UInt32(CJX_OPT_DAILY_CHARACTERS)
+        let coverage = SystemCharacterCoverage.bitmap
+        func allowed(_ text: String) -> Bool {
+            text.unicodeScalars.allSatisfy {
+                let n = Int($0.value)
+                return !(0xE000...0xF8FF).contains(n) && !(0xF0000...0xFFFFD).contains(n)
+                    && !(0x100000...0x10FFFD).contains(n) && coverage[n / 8] & (1 << (n % 8)) != 0
+            }
+        }
+        for mode in [UInt32(0), UInt32(CJX_OPT_SIMPLEX)] {
+            let raw = try RustSession(flags: mode)
+            let filtered = try RustSession(flags: mode | daily, characterCoverage: coverage)
+            for byte in (mode == 0 ? "hx*" : "hc").utf8 {
+                _ = try raw.process(key: UInt32(byte)); _ = try filtered.process(key: UInt32(byte))
+            }
+            let original = try raw.process(key: 32)
+            var expected = original.candidates
+            if original.candidateCount > original.perPage {
+                for _ in 1..<((original.candidateCount + original.perPage - 1) / original.perPage) {
+                    expected += try raw.process(key: UInt32(CJX_KEY_PAGE_DOWN)).candidates
+                }
+            }
+            expected = expected.filter(allowed)
+            let first = try filtered.process(key: 32)
+            var actual = first.candidates
+            if first.candidateCount > first.perPage {
+                for _ in 1..<((first.candidateCount + first.perPage - 1) / first.perPage) {
+                    actual += try filtered.process(key: UInt32(CJX_KEY_PAGE_DOWN)).candidates
+                }
+            }
+            try check(actual == expected && first.candidateCount == expected.count && !actual.isEmpty,
+                      "Daily filtering changed relative order, duplicates or paging")
+            let picked = try filtered.process(key: 49)
+            try check(picked.committed == actual.suffix(actual.count % 9 == 0 ? 9 : actual.count % 9).first,
+                      "Daily filtering broke numeric selection on the final page")
+        }
+        let dailyClient = TestClient()
+        let dailySession = try CompositionSession(flags: daily)
+        for byte in "hx*c".utf8 { try dailySession.handle(key: UInt32(byte), client: dailyClient) }
+        let dailySnapshot = try dailySession.handle(key: 32, client: dailyClient)
+        try check(dailySnapshot.candidates.allSatisfy(allowed) && dailySnapshot.candidates.prefix(3) == ["興", "輿", "與"],
+                  "Native daily mode did not exclude unsupported/private-use candidates")
+        try dailySession.handle(key: 51, client: dailyClient)
+        try check(dailyClient.inserts == ["與"], "Native daily selection committed the wrong character")
+        print("PASS: daily Cangjie/Simplex filtering before paging, unchanged relative order/duplicates and exact numeric commits.")
         var steps = 0
         var scenarios = 0
         for path in ["migration/baseline/cases.json", "migration/baseline/m2-cases.json", "migration/baseline/m3-live-cases.json", "migration/baseline/m3-full-cases.json", "migration/baseline/simplex-cases.json", "migration/baseline/correction-cases.json", "migration/baseline/simplex-full-cases.json"] {
@@ -242,7 +288,7 @@ private enum PreviewTests {
             "ClearReadingBufferAtCompositionError": false, "UseDynamicFrequency": true,
             "UseOverrideTable": "Punctuations-cj-halfwidth-cin"],
             loader: ["HighlightColor": "0.000000 0.478431 0.749020"])
-        try check(settings.flags == 107 && settings.fontSize == 17, "Legacy settings were not preserved")
+        try check(settings.flags == (107 | daily) && settings.fontSize == 17, "Legacy settings/daily default were not preserved")
         let filteredSettings = LegacySettings(module: [:], loader: ["ActivatedOutputFilters": ["OVOFHanConvert-TC2SC"],
             "ActivatedAroundFilters": ["AssociatedPhrase"], "CandidateTextFontHeight": "nan"])
         try check(filteredSettings.flags & 384 == 384 && filteredSettings.fontSize == 17, "Legacy output filters or font validation")
@@ -263,7 +309,7 @@ private enum PreviewTests {
             try check(LegacySettings.load(home: temporary).flags & 107 == 107, "String-valued legacy preference import")
             try check(try Data(contentsOf: url) == bytes, "Preference import wrote to the legacy domain")
         }
-        try check(LegacySettings.load(home: temporary).flags == 491, "Legacy preference files did not enable the full current profile")
+        try check(LegacySettings.load(home: temporary).flags == (491 | daily), "Legacy preference files did not enable the full current profile")
         let legacyDB = temporary.appendingPathComponent("Library/Application Support/Yahoo! KeyKey/Generic-cj-cin-DynamicCandidateOrder.sqlite3")
         try FileManager.default.createDirectory(at: legacyDB.deletingLastPathComponent(), withIntermediateDirectories: true)
         var database: OpaquePointer?
@@ -299,7 +345,49 @@ private enum PreviewTests {
             try check(screen.contains(CandidateWindow.placement(size: size, caret: caret, visibleFrame: screen)),
                       "Candidate window escaped a negative-origin display")
         }
-        let window = CandidateWindow()
+        let typography = CandidateTypography(directory: URL(fileURLWithPath: "assets/fonts", isDirectory: true))
+        for size: CGFloat in [16, 24, 96] {
+            for text in ["𦦪", "𦥷", "𦦫", "𠔜", "𦦲", "𠔜", "𨦴", "𩒦", "𨈍", "興𦦪abc𠔜",
+                         String(UnicodeScalar(0xFBAA4)!), String(UnicodeScalar(0xFC1B8)!), String(UnicodeScalar(0xFCA34)!)] {
+                let rendered = typography.text(text, size: size)
+                try check(rendered.string == text, "Fallback changed a supported candidate")
+                let runs = CTLineGetGlyphRuns(CTLineCreateWithAttributedString(rendered)) as! [CTRun]
+                for run in runs {
+                    let font = (CTRunGetAttributes(run) as NSDictionary)[kCTFontAttributeName] as! CTFont
+                    var glyphs = [CGGlyph](repeating: 0, count: CTRunGetGlyphCount(run))
+                    CTRunGetGlyphs(run, CFRange(location: 0, length: 0), &glyphs)
+                    try check(CTFontCopyPostScriptName(font) as String != "LastResort" && !glyphs.contains(0),
+                              "Candidate still uses missing glyphs")
+                    try check(abs(CTFontGetSize(font) - size) < 0.01, "Fallback lost the configured font size")
+                }
+            }
+        }
+        let ordinary = typography.text("興輿與abc?", size: 24)
+        try check(ordinary.string == "興輿與abc?" && ordinary.attribute(.font, at: 0, effectiveRange: nil) as? NSFont
+                  == NSFont.systemFont(ofSize: 24), "Fallback changed ordinary text or literal question marks")
+        let privateUse = String(UnicodeScalar(0xFCA34)!)
+        let mixedPrivateUse = "𦦪" + privateUse + "與" + String(UnicodeScalar(0xFBAA4)!)
+        try check(typography.text(mixedPrivateUse, size: 24).string == mixedPrivateUse,
+                  "CNS private-use fallback changed Unicode text or adjacent characters")
+        let unmapped = String(UnicodeScalar(0x10FFFD)!)
+        try check(typography.text("𦦪" + unmapped + "與", size: 24).string == "𦦪[U+10FFFD]與",
+                  "Unknown private-use glyph was not identified without losing adjacent text")
+        let table = try String(contentsOfFile: "migration/data/cangjie.tsv", encoding: .utf8)
+        let privateScalars = Set(table.unicodeScalars.filter { (0xF0000...0xFFFFD).contains($0.value) })
+        let privateText = String(String.UnicodeScalarView(privateScalars.sorted { $0.value < $1.value }))
+        let allPrivateUse = typography.text(privateText, size: 17)
+        try check(privateScalars.count == 10_790 && allPrivateUse.string == privateText,
+                  "Bundled CNS font does not cover the legacy table's complete Plane 15 private-use set")
+        for run in CTLineGetGlyphRuns(CTLineCreateWithAttributedString(allPrivateUse)) as! [CTRun] {
+            let font = (CTRunGetAttributes(run) as NSDictionary)[kCTFontAttributeName] as! CTFont
+            var glyphs = [CGGlyph](repeating: 0, count: CTRunGetGlyphCount(run))
+            CTRunGetGlyphs(run, CFRange(location: 0, length: 0), &glyphs)
+            try check(CTFontCopyPostScriptName(font) as String != "LastResort" && !glyphs.contains(0),
+                      "Legacy private-use set still contains a missing glyph")
+        }
+        let unavailable = CandidateTypography(directory: nil)
+        try check(unavailable.text(unmapped, size: 24).string == "[U+10FFFD]", "Missing font resource was not handled")
+        let window = CandidateWindow(typography: typography)
         var clicks: [Int] = []
         var pageDirections: [Bool] = []
         try type("a")
@@ -425,6 +513,44 @@ private enum PreviewTests {
             content.cacheDisplay(in: content.bounds, to: bitmap)
             try bitmap.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: "build/migration/preview/\(name).png"))
         }
+        window.show(dailySnapshot, caret: NSRect(x: 300, y: 400, width: 1, height: 20), windowLevel: 0,
+                    settings: settings, choose: { _ in }, turnPage: { _ in })
+        try renderCandidate("candidate-daily-light", appearance: .aqua)
+        try renderCandidate("candidate-daily-dark", appearance: .darkAqua)
+        window.hide()
+        for (name, selection, expected) in [("extension", 3, "𦦪"), ("private-use", 10, privateUse)] {
+            let glyphSession = try CompositionSession(flags: 0)
+            let glyphClient = TestClient()
+            for byte in "hx*c".utf8 { try glyphSession.handle(key: UInt32(byte), client: glyphClient) }
+            var glyphSnapshot = try glyphSession.handle(key: 32, client: glyphClient)
+            try check(glyphSnapshot.candidates == ["興", "輿", "與", "𦦪", "𦥷", "𦦫", "𠔜", "𦦲", "𠔜"]
+                      && glyphSnapshot.candidateCount == 13, "Wildcard candidate order changed")
+            if selection >= 9 { glyphSnapshot = try glyphSession.handle(key: UInt32(CJX_KEY_PAGE_DOWN), client: glyphClient) }
+            let original = glyphSnapshot
+            window.show(glyphSnapshot, caret: NSRect(x: 300, y: 400, width: 1, height: 20), windowLevel: 0,
+                settings: LegacySettings(module: [:], loader: ["CandidateTextFontHeight": 24]), choose: { index in
+                    let key = PreviewKeyMapper.candidateSelection(index: index, associated: false, spaceFirst: false)!
+                    try! glyphSession.handle(key: key.0, modifiers: key.1, client: glyphClient)
+                }, turnPage: { _ in })
+            try check(glyphSession.snapshot == original, "Rendering changed the engine state")
+            try renderCandidate("candidate-\(name)-light", appearance: .aqua)
+            try renderCandidate("candidate-\(name)-dark", appearance: .darkAqua)
+            let rows = content.arrangedSubviews.compactMap { $0 as? NSButton }
+            try check(rows.count == original.candidates.count, "Fallback removed candidates")
+            rows[selection % 9].performClick(nil)
+            try check(glyphClient.view.string == expected && glyphClient.inserts == [expected],
+                      "Fallback selection did not commit the original Unicode text exactly once")
+            window.hide()
+        }
+        let privateFixture = EngineSnapshot(handled: true, reading: "", committed: "", beep: false, visible: true,
+            page: 2, highlight: 0, candidateCount: 153, perPage: 9, associated: false, learning: nil,
+            candidates: ["興", "𦦪", String(UnicodeScalar(0xFBAA4)!), "𦥷", String(UnicodeScalar(0xFC1B8)!), "欣", "昇", "興", "昇"])
+        window.show(privateFixture, caret: NSRect(x: 300, y: 400, width: 1, height: 20), windowLevel: 0,
+            settings: LegacySettings(module: [:], loader: ["CandidateTextFontHeight": 24]), choose: { _ in }, turnPage: { _ in })
+        try renderCandidate("candidate-cns-private-light", appearance: .aqua)
+        try renderCandidate("candidate-cns-private-dark", appearance: .darkAqua)
+        window.hide()
+        print("PASS: bundled extension and 10790 legacy CNS private-use glyphs, preserved wildcard order and original Unicode commits.")
         let phraseFixture = EngineSnapshot(handled: true, reading: "", committed: "", beep: false, visible: true,
             page: 0, highlight: 9, candidateCount: 36, perPage: 9, associated: true, learning: nil,
             candidates: ["帝", "熱", "症", "炎", "黃", "夏", "暑", "涼", "日"])
@@ -458,6 +584,18 @@ private enum PreviewTests {
             "CandidateTextFontHeight": 19], format: .xml, options: 0)
         try sourceBytes.write(to: sourcePrefs)
         let independent = PreviewSettingsStore(home: independentHome)
+        let scopedDaily = PreviewSettingsStore(home: temporary.appendingPathComponent("daily-settings"))
+        try check(scopedDaily.settings.flags & daily != 0, "Daily mode is not the default")
+        try scopedDaily.set(option: daily, enabled: false)
+        try scopedDaily.set(option: UInt32(CJX_OPT_SIMPLEX), enabled: true)
+        try check(scopedDaily.settings.flags & daily != 0, "Cangjie daily preference leaked into Simplex")
+        try scopedDaily.set(option: daily, enabled: false)
+        try scopedDaily.set(option: UInt32(CJX_OPT_SIMPLEX), enabled: false)
+        try check(scopedDaily.settings.flags & daily == 0, "Cangjie daily preference was lost")
+        try scopedDaily.set(option: daily, enabled: true)
+        try scopedDaily.set(option: UInt32(CJX_OPT_SIMPLEX), enabled: true)
+        let scopedRestart = PreviewSettingsStore(home: temporary.appendingPathComponent("daily-settings"))
+        try check(scopedRestart.settings.flags & daily == 0, "Simplex daily preference was lost after restart")
         let settingsPath = independentHome.appendingPathComponent("Library/Application Support/CangjieX Preview/settings.json")
         try check(independent.settings.flags & 384 == 384 && independent.settings.fontSize == 19
                   && !FileManager.default.fileExists(atPath: settingsPath.path), "Read-only initial setting inheritance")

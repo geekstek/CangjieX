@@ -3,6 +3,7 @@ import InputMethodKit
 
 final class PreviewSettingsStore {
     static let shared = PreviewSettingsStore()
+    private static let inputOptions: UInt32 = 127 | UInt32(CJX_OPT_DAILY_CHARACTERS)
     private struct Overrides: Codable {
         var enabled: UInt32 = 0
         var disabled: UInt32 = 0
@@ -27,8 +28,8 @@ final class PreviewSettingsStore {
 
     var settings: LegacySettings {
         let simplex = overrides.enabled & UInt32(CJX_OPT_SIMPLEX) != 0
-        let enabled = simplex ? (overrides.enabled & ~127) | (overrides.simplexEnabled ?? 0) : overrides.enabled
-        let disabled = simplex ? (overrides.disabled & ~127) | (overrides.simplexDisabled ?? 0) : overrides.disabled
+        let enabled = simplex ? (overrides.enabled & ~Self.inputOptions) | (overrides.simplexEnabled ?? 0) : overrides.enabled
+        let disabled = simplex ? (overrides.disabled & ~Self.inputOptions) | (overrides.simplexDisabled ?? 0) : overrides.disabled
         return LegacySettings(base: simplex ? inheritedSimplex : inherited, enabled: enabled, disabled: disabled,
                               fontSize: overrides.fontSize, playErrorSound: overrides.playErrorSound)
     }
@@ -39,9 +40,9 @@ final class PreviewSettingsStore {
     }
 
     func set(option: UInt32, enabled: Bool) throws {
-        guard option != 0, option & (option - 1) == 0, option & ~4095 == 0 else { return }
+        guard option != 0, option & (option - 1) == 0, option & ~8191 == 0 else { return }
         var next = overrides
-        if option <= 64 && settings.flags & UInt32(CJX_OPT_SIMPLEX) != 0 {
+        if option & Self.inputOptions != 0 && settings.flags & UInt32(CJX_OPT_SIMPLEX) != 0 {
             next.simplexEnabled = enabled ? (next.simplexEnabled ?? 0) | option : (next.simplexEnabled ?? 0) & ~option
             next.simplexDisabled = enabled ? (next.simplexDisabled ?? 0) & ~option : (next.simplexDisabled ?? 0) | option
         } else {
@@ -205,6 +206,7 @@ final class PreviewPreferencesWindow: NSWindowController {
         option("使用全形英數字", flag: CJX_OPT_FULLWIDTH_OUTPUT, in: output)
         option("使用半角標點覆蓋表", flag: CJX_OPT_HALFWIDTH_PUNCTUATION, in: output)
         let appearance = tab("候選與提示")
+        option("日常用字（隱藏私用字與本機缺字候選）", flag: CJX_OPT_DAILY_CHARACTERS, in: appearance)
         let fontRow = NSStackView()
         fontRow.orientation = .horizontal
         fontRow.spacing = 12

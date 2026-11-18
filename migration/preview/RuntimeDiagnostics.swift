@@ -15,6 +15,13 @@ enum DiagnosticEvent: String, Codable {
     case signatureCheckFailed, registryCommandFailed, processCommandFailed, launchCommandFailed, packageCommandFailed, maintenanceCommandFailed
 }
 
+enum DiagnosticCommand: String, Codable {
+    case status, check, activate, diagnose, recover, repair, uninstall, install, invalid
+    case verifyUninstall = "verify-uninstall"
+    case diagnosticsDialog = "diagnostics-dialog"
+    case uninstallDialog = "uninstall-dialog"
+}
+
 struct DiagnosticState: Codable, Equatable {
     enum Selection: String, Codable { case own, abc, other, unknown }
     let selection: Selection
@@ -66,6 +73,7 @@ struct DiagnosticRecord: Codable {
     let status: Int32?
     let elapsedMilliseconds: Int?
     var systemSignals: [DiagnosticReport.SystemSignal]? = nil
+    var command: DiagnosticCommand? = nil
 }
 
 final class DiagnosticJournal {
@@ -194,7 +202,7 @@ final class RuntimeDiagnostics {
     func flush() { queue.sync {} }
 
     func record(_ event: DiagnosticEvent, state: DiagnosticState? = nil, status: Int32? = nil, milliseconds: Int? = nil,
-                signals: [DiagnosticReport.SystemSignal]? = nil) {
+                signals: [DiagnosticReport.SystemSignal]? = nil, command: DiagnosticCommand? = nil) {
         queue.async { [self] in
             guard let journal else { return }
             if [.engineEventFailed, .clientUnavailable, .compositionFailed, .slowInput, .mainLoopUnresponsive].contains(event) {
@@ -206,6 +214,7 @@ final class RuntimeDiagnostics {
                 var record = DiagnosticRecord(schema: 1, time: Date(), run: run, pid: getpid(), role: role, identity: identity,
                                               event: event, state: state, status: status, elapsedMilliseconds: milliseconds)
                 record.systemSignals = signals
+                record.command = command
                 try journal.append(record)
                 logger.info("Diagnostic event: \(event.rawValue, privacy: .public)")
             } catch { logger.error("Diagnostic journal unavailable") }

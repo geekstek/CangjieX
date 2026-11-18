@@ -76,6 +76,7 @@ pub struct SessionOptions {
     pub fullwidth_output: bool,
     pub simplex: bool,
     pub bopomofo_correction: bool,
+    pub daily_characters: bool,
 }
 
 impl Default for SessionOptions {
@@ -93,6 +94,7 @@ impl Default for SessionOptions {
             fullwidth_output: false,
             simplex: false,
             bopomofo_correction: false,
+            daily_characters: false,
         }
     }
 }
@@ -149,9 +151,41 @@ pub struct Session {
     learned: Option<(String, String, u64)>,
     associated: bool,
     correction: Option<(Vec<String>, usize)>,
+    character_coverage: Option<Arc<[u8]>>,
 }
 
 impl Session {
+    pub fn set_character_coverage(&mut self, bitmap: &[u8]) -> bool {
+        if bitmap.len() != 0x110000 / 8
+            || !self.code.is_empty()
+            || !self.candidates.is_empty()
+            || self.correction.is_some()
+        {
+            return false;
+        }
+        self.character_coverage = Some(bitmap.into());
+        true
+    }
+
+    fn candidate_allowed(&self, text: &str) -> bool {
+        if !self.options.daily_characters {
+            return true;
+        }
+        let Some(coverage) = &self.character_coverage else {
+            return false;
+        };
+        let supported = |text: &str| {
+            text.chars().all(|c| {
+                let n = c as usize;
+                !matches!(n, 0xe000..=0xf8ff | 0xf0000..=0xffffd | 0x100000..=0x10fffd)
+                    && coverage[n / 8] & (1 << (n % 8)) != 0
+            })
+        };
+        supported(text)
+            && (!self.options.simplified_output
+                || supported(&crate::compatibility::simplified(text)))
+    }
+
     pub fn configured(options: SessionOptions, learning: Learning) -> Self {
         Self {
             options,
@@ -238,7 +272,10 @@ impl Session {
             && !committed.is_empty()
         {
             for (index, character) in committed.chars().enumerate() {
-                let candidates = crate::compatibility::correction(character);
+                let candidates: Vec<_> = crate::compatibility::correction(character)
+                    .into_iter()
+                    .filter(|text| self.candidate_allowed(text))
+                    .collect();
                 if !candidates.is_empty() {
                     self.candidates = candidates.into();
                     self.page = 0;
@@ -253,7 +290,10 @@ impl Session {
         }
 
         if self.options.associated_phrases && self.code.is_empty() && !committed.is_empty() {
-            let suggestions = crate::compatibility::associated(&committed);
+            let suggestions: Vec<_> = crate::compatibility::associated(&committed)
+                .into_iter()
+                .filter(|text| self.candidate_allowed(text))
+                .collect();
             if !suggestions.is_empty() {
                 self.candidates = suggestions.into();
                 self.associated = true;
@@ -454,6 +494,7 @@ impl Session {
                 candidates = overrides;
             }
         }
+        candidates.retain(|text| self.candidate_allowed(text));
         match candidates.as_slice() {
             [] => {
                 self.close_candidates();
@@ -700,6 +741,122 @@ mod tests {
         for character in code.bytes() {
             session.handle(KeyEvent::new(Key::Character(character)));
         }
+    }
+
+    #[test]
+    fn daily_candidates_filter_before_paging_preserve_order_and_never_destroy_learning() {
+        let mut coverage = vec![0xff; 0x110000 / 8];
+        let missing = '𦦪' as usize;
+        coverage[missing / 8] &= !(1 << (missing % 8));
+        for simplex in [false, true] {
+            let mut raw = Session::configured(
+                SessionOptions {
+                    simplex,
+                    ..SessionOptions::default()
+                },
+                Learning::default(),
+            );
+            let mut daily = Session::configured(
+                SessionOptions {
+                    simplex,
+                    daily_characters: true,
+                    ..SessionOptions::default()
+                },
+                Learning::default(),
+            );
+            assert!(daily.set_character_coverage(&coverage));
+            let code = if simplex { "hc" } else { "hx*" };
+            type_code(&mut raw, code);
+            type_code(&mut daily, code);
+            let all = raw.handle(KeyEvent::new(Key::Space));
+            let expected: Vec<_> = all
+                .candidates
+                .iter()
+                .copied()
+                .filter(|text| daily.candidate_allowed(text))
+                .collect();
+            let filtered = daily.handle(KeyEvent::new(Key::Space));
+            assert_eq!(filtered.candidates.as_ref(), expected);
+            assert!(!expected.is_empty());
+            assert!(!expected.contains(&"𦦪"));
+            assert!(
+                expected
+                    .iter()
+                    .all(|s| !s.chars().any(|c| (0xf0000..=0xffffd).contains(&(c as u32))))
+            );
+            assert!(!daily.set_character_coverage(&coverage));
+            let mut page = 0;
+            while page + 9 < expected.len() {
+                daily.handle(KeyEvent::new(Key::PageDown));
+                page += 9;
+            }
+            assert_eq!(
+                daily.handle(KeyEvent::new(Key::Character(b'1'))).committed,
+                expected[page]
+            );
+        }
+        let learning = Learning::default();
+        let mut daily = Session::configured(
+            SessionOptions {
+                daily_characters: true,
+                dynamic_frequency: true,
+                ..SessionOptions::default()
+            },
+            learning.clone(),
+        );
+        daily.import_frequency("a", "曰", 10);
+        daily.import_frequency("hxbc", "𦦪", 99);
+        assert!(daily.set_character_coverage(&coverage));
+        type_code(&mut daily, "a");
+        assert_eq!(daily.handle(KeyEvent::new(Key::Space)).candidates[0], "曰");
+        daily.reset();
+        let mut full = Session::configured(
+            SessionOptions {
+                dynamic_frequency: true,
+                ..SessionOptions::default()
+            },
+            learning,
+        );
+        type_code(&mut full, "hxbc");
+        assert_eq!(full.handle(KeyEvent::new(Key::Space)).candidates[0], "𦦪");
+        assert!(!daily.candidate_allowed("\u{e000}"));
+        assert!(!daily.candidate_allowed("\u{100000}"));
+        let mut empty = Session::configured(
+            SessionOptions {
+                daily_characters: true,
+                ..SessionOptions::default()
+            },
+            Learning::default(),
+        );
+        type_code(&mut empty, "a");
+        let result = empty.handle(KeyEvent::new(Key::Space));
+        assert!(result.candidates.is_empty() && result.committed.is_empty() && result.beep);
+    }
+
+    #[test]
+    fn daily_filters_phrases_and_correction_without_dropping_direct_text_or_cancelled_originals() {
+        let mut coverage = vec![0u8; 0x110000 / 8];
+        for c in "日".chars() {
+            let n = c as usize;
+            coverage[n / 8] |= 1 << (n % 8);
+        }
+        let mut session = Session::configured(
+            SessionOptions {
+                daily_characters: true,
+                associated_phrases: true,
+                bopomofo_correction: true,
+                ..SessionOptions::default()
+            },
+            Learning::default(),
+        );
+        assert!(session.set_character_coverage(&coverage));
+        let direct = session.direct_text("日");
+        assert_eq!(direct.committed, "日");
+        assert_eq!(direct.candidates.as_ref(), ["日"]);
+        let original = session.direct_text("ㄇ");
+        assert_eq!(original.committed, "ㄇ");
+        assert!(!original.correction);
+        assert_eq!(session.direct_text("𦦪").committed, "𦦪");
     }
 
     #[test]

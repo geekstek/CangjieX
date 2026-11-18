@@ -47,6 +47,16 @@ assert relocation is None or not list(relocation), "Installer must not search fo
 assert distribution.find("locator") is None and distribution.find("pkg-ref/relocate") is None
 assert distribution.find("pkg-ref").get("onConclusion") == "RequireLogout", "Manual installation must explicitly require logout"
 identity = json.loads((app / "Contents/Resources/RuntimeBuild.json").read_text())
+for family, license, files in [
+    ("Jigmo", "CC0-1.0", {"Jigmo2.ttf", "LICENSE.txt", "README.txt", "THANKS.txt"}),
+    ("CNS11643", "OGDL-Taiwan-1.0", {"TW-Sung-Plus-98_1.ttf", "LICENSE.txt", "NOTICE.txt", "font-readme.txt"}),
+]:
+    fonts = app / "Contents/Resources/Fonts" / family
+    font_manifest = json.loads((fonts / "manifest.json").read_text())
+    assert font_manifest["license"] == license and font_manifest["modified"] is False
+    assert set(font_manifest["files"]) == files
+    for name, digest in font_manifest["files"].items():
+        assert hashlib.sha256((fonts / name).read_bytes()).hexdigest() == digest, "Font resource mismatch: " + name
 assert identity["version"] == version
 uuid.UUID(identity["buildID"])
 executable = (app / "Contents/MacOS/CangjieXPreview").read_bytes()

@@ -28,6 +28,18 @@ cp migration/data/modules-manifest.json "${APP}/Contents/Resources/modules-manif
 cp migration/data/compatibility-manifest.json "${APP}/Contents/Resources/compatibility-manifest.json"
 cp migration/data/LICENSE.KeyKey.txt "${APP}/Contents/Resources/LICENSE.KeyKey.txt"
 cp migration/data/manifest.json "${APP}/Contents/Resources/cangjie-manifest.json"
+python3 - <<'PY'
+import hashlib,json
+from pathlib import Path
+for family,license in [('Jigmo','CC0-1.0'),('CNS11643','OGDL-Taiwan-1.0')]:
+    fonts=Path('assets/fonts')/family
+    manifest=json.loads((fonts/'manifest.json').read_text())
+    assert manifest['license']==license and manifest['modified'] is False
+    for name,digest in manifest['files'].items():
+        assert hashlib.sha256((fonts/name).read_bytes()).hexdigest()==digest, 'Font resource checksum mismatch: '+name
+PY
+mkdir -p "${APP}/Contents/Resources/Fonts"
+ditto assets/fonts "${APP}/Contents/Resources/Fonts"
 python3 - "${APP}/Contents/Info.plist" "${APP}/Contents/Resources/RuntimeBuild.json" "${OUTPUT_DIR}/CompiledRuntimeBuild.swift" <<'PY'
 import json,plistlib,sys,uuid
 version=plistlib.load(open(sys.argv[1],'rb'))['CFBundleShortVersionString']
@@ -38,7 +50,7 @@ with open(sys.argv[3],'w') as f:
 PY
 maintenance_sources=(migration/preview/RuntimeDiagnostics.swift migration/preview/DiagnosticReport.swift migration/preview/DiagnosticsUI.swift migration/preview/RuntimeVersion.swift migration/preview/UpgradeActivation.swift migration/preview/InstallUI.swift migration/preview/InputSourceMaintenance.swift migration/preview/UninstallUI.swift)
 sources=("${maintenance_sources[@]}" migration/preview/LegacySettings.swift migration/preview/PreviewSettings.swift migration/swift/EngineSession.swift migration/preview/CompositionSession.swift
-         migration/preview/CandidateWindow.swift migration/preview/PreviewInputController.swift)
+         migration/preview/SystemCharacterCoverage.swift migration/preview/CandidateWindow.swift migration/preview/PreviewInputController.swift)
 PREVIEW_ARCHS="${PREVIEW_ARCHS:-$(uname -m)}"
 binaries=()
 maintenance_binaries=()

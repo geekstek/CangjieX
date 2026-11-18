@@ -66,7 +66,8 @@ enum {
     CJX_OPT_ASSOCIATED_PHRASES = 256,
     CJX_OPT_FULLWIDTH_OUTPUT = 512,
     CJX_OPT_SIMPLEX = 1024,
-    CJX_OPT_BOPOMOFO_CORRECTION = 2048
+    CJX_OPT_BOPOMOFO_CORRECTION = 2048,
+    CJX_OPT_DAILY_CHARACTERS = 4096
 };
 
 typedef struct {
@@ -93,6 +94,12 @@ int32_t cjx_session_new(CjxSession **output);
 /* Configured sessions use the flag values above. Unknown bits fail. Learned
  * order belongs to this session. Default constructor is unchanged. */
 int32_t cjx_session_new_configured(uint32_t flags, CjxSession **output);
+/* Copy a platform-provided Unicode coverage bitmap (0x110000 / 8 bytes).
+ * Scalar n uses bit (n % 8) of byte (n / 8). Only accepted while idle;
+ * invalid input leaves the session unchanged. Caller retains the bytes.
+ * DAILY_CHARACTERS excludes private-use characters and requires coverage;
+ * before a bitmap is supplied, that mode offers no candidates. */
+int32_t cjx_session_set_character_coverage(CjxSession *session, const uint8_t *bitmap, size_t length);
 /* Direct text from the host/input pipeline, not clipboard interception.
  * UTF-8 must cover 0..4096 readable bytes; empty text is not handled.
  * Same session/output ownership contract as cjx_session_handle. Invalid UTF-8

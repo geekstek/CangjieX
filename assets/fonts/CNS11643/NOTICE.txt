@@ -1,0 +1,10 @@
+Copyright (c) 2026 Ministry of Digital Affairs.
+
+數位發展部，CNS11643中文標準交換碼全字庫網站
+https://www.cns11643.gov.tw
+全字庫正宋體 Plus（TW-Sung-Plus-98_1.ttf），2026-05-05 資料集。
+本字型未經修改，依政府資料開放授權條款－第1版使用與散布。
+授權全文見 LICENSE.txt；https://data.gov.tw/license
+
+官方資料集：https://data.gov.tw/dataset/5961
+此副本取自 manifest.json 所列固定 Git commit 的公開鏡像；保留原始字型及著作權資訊。

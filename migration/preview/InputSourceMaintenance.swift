@@ -403,11 +403,14 @@ enum InputSourceMaintenance {
 @main
 struct MaintenanceMain {
     static func main() {
+        let command: DiagnosticCommand = Bundle.main.bundleIdentifier == "io.github.geekstek.cangjiex.installer" ? .install
+            : CommandLine.arguments.count == 1 ? .diagnosticsDialog
+            : DiagnosticCommand(rawValue: CommandLine.arguments[1]) ?? .invalid
         let deletingData = CommandLine.arguments.contains("--delete-data") && CommandLine.arguments.dropFirst().contains(where: { ["uninstall", "verify-uninstall"].contains($0) })
         if !deletingData {
             let app = InputSourceMaintenance.appURL(home: FileManager.default.homeDirectoryForCurrentUser)
             RuntimeDiagnostics.shared.configure(role: .maintenance, identity: try? UpgradeActivation.installedIdentity(at: app))
-            RuntimeDiagnostics.shared.record(.startup)
+            RuntimeDiagnostics.shared.record(.startup, command: command)
             RuntimeDiagnostics.shared.flush()
         }
         defer { RuntimeDiagnostics.shared.flush() }
@@ -431,7 +434,7 @@ struct MaintenanceMain {
             }
             try InputSourceMaintenance.execute(CommandLine.arguments[1], deleteData: CommandLine.arguments.count == 3)
         } catch {
-            RuntimeDiagnostics.shared.record(.recoveryFailed)
+            RuntimeDiagnostics.shared.record(.maintenanceCommandFailed, state: DiagnosticState.capture(), command: command)
             RuntimeDiagnostics.shared.flush()
             FileHandle.standardError.write(Data("\(error.localizedDescription)\n".utf8))
             exit(1)
