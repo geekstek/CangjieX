@@ -68,7 +68,7 @@ V2.0.2 新增原生安裝器：開啟 `.dmg` 內的「倉頡星安裝器」，�
 
 手動 `.pkg` 僅寫入檔案，會明確要求登出並重新登入；看到磁碟版本更新，不代表正在執行的程序已換新。V2.0.0／V2.0.1 的安裝後流程同樣需要重新登入。
 
-**[倉頡星 V2.0.3 已發布](https://github.com/geekstek/CangjieX/releases/tag/v2.0.3)。** 推薦[下載 Universal 原生安裝器（.dmg）](https://github.com/geekstek/CangjieX/releases/download/v2.0.3/CangjieX-2.0.3-universal.dmg)，適用於 Apple Silicon 與 Intel；亦提供[手動安裝包（.pkg，安裝後須重新登入）](https://github.com/geekstek/CangjieX/releases/download/v2.0.3/CangjieX-2.0.3-universal.pkg)。Release 附有各自的 SHA256 校驗檔及建置資訊，公開下載檔案已核對摘要、版本及構建提交。先前 V2 與 V1.x Release 保留供回退。
+**[倉頡星 V2.0.4 已發布](https://github.com/geekstek/CangjieX/releases/tag/v2.0.4)。** 推薦[下載 Universal 原生安裝器（.dmg）](https://github.com/geekstek/CangjieX/releases/download/v2.0.4/CangjieX-2.0.4-universal.dmg)，適用於 Apple Silicon 與 Intel；亦提供[手動安裝包（.pkg，安裝後須重新登入）](https://github.com/geekstek/CangjieX/releases/download/v2.0.4/CangjieX-2.0.4-universal.pkg)。Release 附有各自的 SHA256 校驗檔及建置資訊，公開下載檔案已核對摘要、版本及構建提交。先前 V2 與 V1.x Release 保留供回退。
 
 1. 開啟 `.dmg` 內的「倉頡星安裝器」。完成組字、切換 ABC，並結束系統設定。
 2. 按「安裝並啟用」，安裝期間保持 ABC。只更新目前使用者的 V2，保留設定與詞頻。
